@@ -1,0 +1,14 @@
+config/config/
+__pycache__/
+*.pyc
+.env
+.env.*
+!.env.example
+node_modules/
+.venv/
+venv/
+*.log
+*.apk
+*.zip
+temp/
+runtime/

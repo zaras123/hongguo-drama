@@ -1,0 +1,7 @@
+requests>=2.32,<3
+frida==16.7.19
+fastapi>=0.115,<1
+uvicorn>=0.30,<1
+pycryptodome>=3.20,<4
+pillow>=10,<13
+pillow-heif>=0.18,<2
