@@ -1,8 +1,9 @@
 import fs from "node:fs"
 import fsp from "node:fs/promises"
 import path from "node:path"
-import { Readable } from "node:stream"
 import { randomUUID } from "node:crypto"
+import { followResponse, readText, shareUrl } from "./Http.js"
+import { validateVideo } from "./Video.js"
 
 /**
  * 红果短剧官网（hongguoduanju.com）数据源。
@@ -228,7 +229,7 @@ export function toTagList(value) {
 
 function sanitizeFileName(name) {
   return String(name || "")
-    .replace(/[\\/:*?"<>|\u0000-\u001f]/g, " ")
+    .replace(/[^\p{L}\p{N} ._-]/gu, " ")
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 80)
@@ -250,9 +251,6 @@ export default class HongguoAPI {
     this.serverTimeout = Number(this.config.apiServerTimeout) || 180000
     /** 最近一次自建服务报错，便于排查为什么回退了官网 */
     this.lastServerError = ""
-    /** 最近一次短链解析报错，便于在无候选时给出原因 */
-    this.lastResolveError = null
-    this.lastShareTexts = []
   }
 
   /** 是否配置并启用了自建 API 服务 */
@@ -281,26 +279,29 @@ export default class HongguoAPI {
     }
   }
 
-  /** 底层请求：不判断状态码，便于短链跳转时读取最终 URL 与响应体 */
+  /** 页面请求在返回前读完有限大小的响应体；超时包含 DNS、跳转和 body。 */
   async request(url, options = {}) {
     const timeout = Number(options.timeout) || this.timeout
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), timeout)
     try {
-      return await fetch(url, {
-        method: options.method || "GET",
+      const res = await followResponse(url, {
         headers: this.baseHeaders(options.headers),
-        body: options.body,
-        redirect: options.redirect || "follow",
+        share: options.share === true,
+        trustedOrigin: !options.share && this.site !== SITE_ORIGIN ? new URL(this.site).origin : undefined,
         signal: controller.signal
       })
+      const body = await readText(res, Number(this.config.maxPageSizeMB) > 0
+        ? this.config.maxPageSizeMB * 1048576 : 4 * 1048576)
+      return { ...res, text: async () => body }
     } catch (err) {
       const reason = String(err?.message || err)
-      if (err?.name === "AbortError" || /abort/i.test(reason)) {
+      if (controller.signal.aborted) {
         throw new Error(`请求超时（${timeout}ms）`)
       }
       throw new Error(`请求失败：${reason}`)
     } finally {
+      controller.abort()
       clearTimeout(timer)
     }
   }
@@ -423,21 +424,22 @@ export default class HongguoAPI {
   }
 
   /** 从分享链接、短链、scheme 或页面跳转里收集所有候选 series_id */
-  async collectSeriesIdCandidates(input) {
+  async collectShare(input) {
     const text = String(input ?? "").trim()
     if (!text) throw new Error("没有提供分享链接或剧集 ID")
-    this.lastResolveError = null
-    this.lastShareTexts = []
+    if (text.length > 16384) throw new Error("分享内容过长")
+    let lastResolveError = null
+    const shareTexts = []
 
     const candidates = []
     const seen = new Set()
     const addText = (value) => {
       const source = String(value || "")
-      this.lastShareTexts.push(decodeRepeatedly(source))
+      shareTexts.push(decodeRepeatedly(source))
       let added = false
       for (const item of [source, decodeRepeatedly(source)]) {
         for (const id of extractIdCandidates(item)) {
-          if (candidates.includes(id)) continue
+          if (candidates.includes(id) || candidates.length >= 20) continue
           candidates.push(id)
           added = true
         }
@@ -446,10 +448,11 @@ export default class HongguoAPI {
     }
 
     const visit = async (value, depth) => {
-      if (depth > 2) return
+      if (depth > 2 || seen.size >= 10) return
       const current = String(value || "").trim()
       if (!current || seen.has(current)) return
       seen.add(current)
+      if (/^https?:\/\//i.test(current)) shareUrl(current)
 
       if (addText(current)) return
 
@@ -457,7 +460,6 @@ export default class HongguoAPI {
         current.match(/(?:https?|dragon8662|snssdk143|snssdk2329|sslocal|douyinlite):\/\/[^\s"'<>]+/gi) || []
       for (const target of embedded) {
         if (target === current) continue
-        if (addText(target)) return
         await visit(target, depth + 1)
         if (candidates.length) return
       }
@@ -466,9 +468,9 @@ export default class HongguoAPI {
 
       let res
       try {
-        res = await this.request(current, { redirect: "follow" })
+        res = await this.request(current, { share: true })
       } catch (err) {
-        this.lastResolveError = err
+        lastResolveError = err
         return
       }
 
@@ -478,21 +480,24 @@ export default class HongguoAPI {
       addText(body)
 
       for (const target of extractRedirectTargets(body)) {
-        if (addText(target)) return
         await visit(target, depth + 1)
         if (candidates.length) return
       }
     }
 
     await visit(text, 0)
-    return candidates
+    return { candidates, shareTexts, lastResolveError }
+  }
+
+  async collectSeriesIdCandidates(input) {
+    return (await this.collectShare(input)).candidates
   }
 
   /** 分享链接 / 纯数字 ID -> 第一个候选 series_id */
   async resolveSeriesId(input) {
-    const candidates = await this.collectSeriesIdCandidates(input)
+    const { candidates, lastResolveError } = await this.collectShare(input)
     if (!candidates.length) {
-      const cause = this.lastResolveError ? `（${this.lastResolveError.message}）` : ""
+      const cause = lastResolveError ? `（${lastResolveError.message}）` : ""
       throw new Error(
         "未能从分享链接中解析出剧集 ID，短链可能已失效或该链接不含内容信息；" +
           "可打开红果分享页复制带 series_id 的链接后重试" +
@@ -577,9 +582,9 @@ export default class HongguoAPI {
 
   /** 分享链接/ID -> 剧集信息 */
   async getSeriesByInput(input) {
-    const candidates = await this.collectSeriesIdCandidates(input)
+    const { candidates, shareTexts, lastResolveError } = await this.collectShare(input)
     if (!candidates.length) {
-      const cause = this.lastResolveError ? `（${this.lastResolveError.message}）` : ""
+      const cause = lastResolveError ? `（${lastResolveError.message}）` : ""
       throw new Error(
         "未能从分享链接中解析出剧集 ID，短链可能已失效或该链接不含内容信息；" +
           "可打开红果分享页复制带 series_id 的链接后重试" +
@@ -592,7 +597,7 @@ export default class HongguoAPI {
       try {
         const series = await this.getSeries(seriesId)
         if (series?.episodes?.length) {
-          const sources = this.lastShareTexts.join("\n")
+          const sources = shareTexts.join("\n")
           const currentIds = [
             ...sources.matchAll(/\/player\/\d{6,30}\/(\d{6,30})/g),
             ...sources.matchAll(/(?:[?&"']|\b)(?:vid|chapter_id|used_chapter_id|video_id)["']?\s*[:=]\s*["']?(\d{6,30})/g)
@@ -707,7 +712,8 @@ export default class HongguoAPI {
     const target = path.join(dir, `${base}-${randomUUID()}.mp4`)
     const part = `${target}.part`
 
-    const retries = Number.isInteger(options.retries) ? options.retries : Number(this.config.downloadRetries) || 2
+    const rawRetries = options.retries ?? this.config.downloadRetries ?? 2
+    const retries = Math.max(0, Math.min(5, Math.trunc(Number(rawRetries)) || 0))
     const maxBytes =
       options.maxBytes ??
       (Number(this.config.maxFileSizeMB) > 0 ? Number(this.config.maxFileSizeMB) * 1024 * 1024 : 0)
@@ -731,6 +737,7 @@ export default class HongguoAPI {
   async downloadOnce(url, part, target, options = {}) {
     const controller = new AbortController()
     const idleTimeout = Number(options.idleTimeout) || 60000
+    const totalTimer = setTimeout(() => controller.abort(new Error("下载总时长超限")), this.downloadTimeout)
     let idleTimer = null
     const bumpIdle = () => {
       clearTimeout(idleTimer)
@@ -740,21 +747,27 @@ export default class HongguoAPI {
     bumpIdle()
     let handle = null
     try {
-      const res = await fetch(url, {
+      const fromServer = this.isServerUrl(url)
+      const res = await followResponse(url, {
         headers: this.baseHeaders({
           Accept: "video/mp4,video/*;q=0.9,*/*;q=0.8",
           ...(options.headers || {})
         }),
-        redirect: "follow",
+        trustedOrigin: fromServer ? new URL(this.server).origin : undefined,
+        noRedirect: fromServer,
         signal: controller.signal
       })
 
       if (!res.ok) throw new Error(res.status === 401 && this.isServerUrl(url)
         ? "自建服务 API Key 无效（HTTP 401），请检查 apiKey" : `HTTP ${res.status}`)
       if (!res.body) throw new Error("响应没有内容")
+      if (res.status !== 200 || res.headers.has("content-range")) throw new Error("下载接口返回分段响应，未收到完整视频")
+      if (res.headers.has("content-encoding") && res.headers.get("content-encoding") !== "identity") {
+        throw new Error("视频接口返回了非原始编码内容")
+      }
 
       const contentType = res.headers.get("content-type") || ""
-      if (/json|text\/html/i.test(contentType)) throw new Error("下载接口返回了错误页面或 JSON，未收到视频")
+      if (/json|text\//i.test(contentType)) throw new Error("下载接口返回了错误页面、文本或 JSON，未收到视频")
       const total = Number(res.headers.get("content-length")) || 0
       if (options.maxBytes && total && total > options.maxBytes) {
         throw new Error(
@@ -763,7 +776,7 @@ export default class HongguoAPI {
       }
 
       handle = await fsp.open(part, "w")
-      const stream = typeof Readable.fromWeb === "function" ? Readable.fromWeb(res.body) : res.body
+      const stream = res.body
       let size = 0
 
       for await (const chunk of stream) {
@@ -786,6 +799,9 @@ export default class HongguoAPI {
       handle = null
       if (!size) throw new Error("下载内容为空")
       if (total && !res.headers.get("content-encoding") && size !== total) throw new Error("视频下载不完整")
+      clearTimeout(idleTimer)
+      await validateVideo(part, this.config)
+      controller.signal.throwIfAborted()
 
       await fsp.rm(target, { force: true }).catch(() => {})
       await fsp.rename(part, target)
@@ -795,6 +811,8 @@ export default class HongguoAPI {
       throw err instanceof Error ? err : new Error(String(err))
     } finally {
       clearTimeout(idleTimer)
+      controller.abort()
+      clearTimeout(totalTimer)
       if (handle) await handle.close().catch(() => {})
     }
   }

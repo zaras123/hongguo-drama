@@ -4,27 +4,37 @@ import fs from "node:fs/promises"
 
 const run = promisify(execFile)
 
-export async function prepareVideo(filePath, config) {
-  if (!config.transcodeVideo) return filePath
+export async function validateVideo(filePath, config = {}) {
   const options = { windowsHide: true, timeout: 15000, maxBuffer: 1024 * 1024 }
   let streams
   try {
     const { stdout } = await run(config.ffprobePath || "ffprobe", [
-      "-v", "error", "-show_entries", "stream=codec_type,codec_name,pix_fmt", "-of", "json", filePath
+      "-v", "error", "-protocol_whitelist", "file,pipe", "-show_entries",
+      "stream=codec_type,codec_name,pix_fmt:format=format_name", "-of", "json", filePath
     ], options)
-    streams = JSON.parse(stdout).streams || []
+    const info = JSON.parse(stdout)
+    if (!String(info.format?.format_name).split(",").includes("mp4")) throw new Error("not MP4")
+    streams = info.streams || []
   } catch {
     throw new Error("视频检查失败，请确认 ffprobe 已安装且能读取视频")
   }
   const video = streams.find((stream) => stream.codec_type === "video")
   if (!video) throw new Error("下载结果没有视频轨道")
+  return streams
+}
+
+export async function prepareVideo(filePath, config) {
+  if (!config.transcodeVideo) return filePath
+  const streams = await validateVideo(filePath, config)
+  const video = streams.find((stream) => stream.codec_type === "video")
+  const options = { windowsHide: true, timeout: 15000, maxBuffer: 1024 * 1024 }
   if (video.codec_name === "h264" && video.pix_fmt === "yuv420p" &&
       streams.filter((s) => s.codec_type === "audio").every((s) => s.codec_name === "aac")) return filePath
 
   const target = `${filePath}.qq.mp4`
   try {
     await run(config.ffmpegPath || "ffmpeg", [
-      "-hide_banner", "-loglevel", "error", "-nostdin", "-y", "-i", filePath,
+      "-hide_banner", "-loglevel", "error", "-nostdin", "-y", "-protocol_whitelist", "file,pipe", "-i", filePath,
       "-map", "0:v:0", "-map", "0:a:0?", "-c:v", "libx264", "-preset", "fast",
       "-crf", "23", "-pix_fmt", "yuv420p", "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2",
       "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", target

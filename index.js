@@ -1,5 +1,5 @@
 import fs from "node:fs"
-import { pathToFileURL } from "node:url"
+import path from "node:path"
 import plugin from "../../lib/plugins/plugin.js"
 import Config from "./components/Config.js"
 import HongguoAPI from "./components/HongguoAPI.js"
@@ -11,6 +11,7 @@ import { parseSetting, settingsHelp } from "./components/Settings.js"
 
 const sessions = new Map()
 const activeDownloads = new Set()
+let activeParses = 0
 
 /**
  * 红果短剧（com.phoenix.read / com.dragon.read）解析下载插件
@@ -184,9 +185,14 @@ export class HongguoDrama extends plugin {
 
   /** 分享链接/ID -> 剧集信息：漫剧走 ManjuAPI，其余走红果官网 */
   async parseSeries(input) {
-    return this.useManju(input)
-      ? await this.manju.getSeriesByInput(input)
-      : await this.api.getSeriesByInput(input)
+    return this.withParseSlot(() => this.useManju(input)
+      ? this.manju.getSeriesByInput(input) : this.api.getSeriesByInput(input))
+  }
+
+  async withParseSlot(action) {
+    if (activeParses >= (Number(this.config.maxConcurrentParses) || 4)) throw new Error("解析任务已满，请稍后重试")
+    activeParses++
+    try { return await action() } finally { activeParses-- }
   }
 
   /** 单集提示语里的数据源说明 */
@@ -327,7 +333,7 @@ export class HongguoDrama extends plugin {
     }
     try {
       await e.reply(`🔍 正在搜索《${keyword}》...`)
-      const list = await this.api.search(keyword)
+      const list = await this.withParseSlot(() => this.api.search(keyword))
       if (!list.length) {
         await e.reply("❎ 没有搜到相关短剧，换个关键词试试")
         return false
@@ -389,7 +395,7 @@ export class HongguoDrama extends plugin {
         series.source === "manju" &&
         accessible > 0 &&
         index > accessible &&
-        !this.api.serverEnabled()
+        series.backend !== "server"
       ) {
         return {
           indexes: [1],
@@ -446,7 +452,7 @@ export class HongguoDrama extends plugin {
         try {
           // 第一次尝试走自建服务（解密后的可播流），失败后回退官网明文直链
           const url = await this.api.getEpisodeUrl(series.seriesId, episode.vid, {
-            prefer: attempt === 0 ? undefined : "site"
+            prefer: attempt === 0 && !(series.source === "manju" && series.backend !== "server") ? undefined : "site"
           })
           const fromServer = this.api.isServerUrl(url)
           file = await this.api.download(url, name, {
@@ -538,13 +544,18 @@ export class HongguoDrama extends plugin {
 
   async sendVideo(e, filePath, title) {
     if (!fs.existsSync(filePath)) throw new Error("本地文件不存在")
-    const recipient = e.group?.sendFile ? e.group : e.friend?.sendFile ? e.friend : null
-    if (this.config.sendType === "file" && recipient) {
-      assertSent(await recipient.sendFile(filePath, `${title}.mp4`))
+    const filename = `${title}.mp4`
+    // Native icqq uses fs.upload(file, pid, name); Yunzai adapter wrappers use sendFile(file, name).
+    const sendFile = e.group?.fs?.upload ? () => e.group.fs.upload(filePath, "/", filename) :
+      e.group?.sendFile ? () => e.group.sendFile(filePath, filename) :
+      e.friend?.sendFile ? () => e.friend.sendFile(filePath, filename) : null
+    if (this.config.sendType === "file") {
+      if (!sendFile) throw new Error("当前适配器不支持文件上传")
+      assertSent(await sendFile())
       return
     }
     try {
-      let payload = pathToFileURL(filePath).href
+      let payload = path.resolve(filePath)
       if (this.config.videoTransport === "base64") {
         const size = (await fs.promises.stat(filePath)).size
         if (size > (Number(this.config.maxBase64SizeMB) || 30) * 1048576) {
@@ -555,7 +566,7 @@ export class HongguoDrama extends plugin {
       assertSent(await e.reply(segment.video(payload)))
     } catch (err) {
       logger.warn(`[红果短剧] 视频直发失败，改用群文件: ${err.message}`)
-      if (recipient) assertSent(await recipient.sendFile(filePath, `${title}.mp4`))
+      if (sendFile) assertSent(await sendFile())
       else throw err
     }
   }

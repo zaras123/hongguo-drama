@@ -31,6 +31,7 @@ manjuSearchLimit: 5
 # 单条命令最多下载几集
 maxEpisodesPerRequest: 3
 maxConcurrentDownloads: 2
+maxConcurrentParses: 4
 
 # 单个视频最大体积（MB），0 表示不限制
 maxFileSizeMB: 100
@@ -41,10 +42,10 @@ sendType: video
 # 发送完成后删除本地缓存文件
 cleanupAfterSend: true
 
-# 本机协议端用 file；协议端在另一台机器且不能访问本地文件时用 base64
+# file 使用原始绝对路径；远程协议端不能访问文件时用 base64
 videoTransport: file
 maxBase64SizeMB: 30
-# HEVC/bytevc2 视频可尝试转成 QQ 常用的 H.264/AAC，需要 ffmpeg 和 ffprobe
+# 每次下载都需要 ffprobe 验证 MP4 视频轨道；转码另需含 libx264 的 ffmpeg
 transcodeVideo: false
 ffmpegPath: "ffmpeg"
 ffprobePath: "ffprobe"
@@ -58,6 +59,8 @@ sessionTTL: 1800
 
 # 页面请求超时（毫秒）
 requestTimeout: 30000
+maxPageSizeMB: 4
+downloadTimeout: 600000
 
 # 下载停滞判定（毫秒）与失败重试次数
 downloadIdleTimeout: 60000

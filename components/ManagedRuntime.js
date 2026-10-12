@@ -24,7 +24,13 @@ export class ManagedRuntime {
   }
 
   get installed() {
-    return fs.existsSync(path.join(this.root, "ready.json")) && fs.existsSync(this.python)
+    try {
+      const ready = JSON.parse(fs.readFileSync(path.join(this.root, "ready.json"), "utf8"))
+      return fs.existsSync(this.python) && Array.isArray(ready.files) &&
+        ["server.py", "sign_server.py"].every((name) => ready.files.includes(name)) &&
+        ready.files.every((name) => typeof name === "string" &&
+          fs.statSync(path.join(this.root, "upstream", name)).isFile())
+    } catch { return false }
   }
 
   async exclusive(action) {

@@ -39,9 +39,22 @@ def install(root):
         raise RuntimeError("Python 3.10 or newer is required")
     root.mkdir(parents=True, exist_ok=True, mode=0o700)
     os.chmod(root, 0o700)
+    ready = root / "ready.json"
+    ready.unlink(missing_ok=True)
     upstream = root / "upstream"
     manifest_file = root / "installed.json"
-    if not manifest_file.exists():
+    def blob_sha(data):
+        return hashlib.sha1(b"blob " + str(len(data)).encode() + b"\0" + data).hexdigest()
+
+    try:
+        manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
+        complete = manifest.get("revision") == REVISION and all(
+            (upstream / name).is_file() and
+            blob_sha((upstream / name).read_bytes()) == manifest.get("files", {}).get(name)
+            for name in FILES)
+    except (OSError, ValueError, TypeError, AttributeError):
+        complete = False
+    if not complete:
         progress("正在获取固定版本的上游运行文件")
         tree = json.loads(fetch("https://api.github.com/repos/zhangbaio/hongguo/git/trees/" + REVISION + "?recursive=1"))
         entries = {row["path"]: row for row in tree["tree"] if row["type"] == "blob"}
@@ -60,7 +73,10 @@ def install(root):
                 target = upstream / name
                 target.parent.mkdir(parents=True, exist_ok=True)
                 os.replace(stage / name, target)
-        manifest_file.write_text(json.dumps({"revision": REVISION}), encoding="utf-8")
+        manifest = {"revision": REVISION, "files": {name: entries[name]["sha"] for name in FILES}}
+        staged_manifest = root / "installed.json.tmp"
+        staged_manifest.write_text(json.dumps(manifest), encoding="utf-8")
+        os.replace(staged_manifest, manifest_file)
     if not (upstream / "config.json").exists():
         shutil.copyfile(upstream / "config.example.json", upstream / "config.json")
         os.chmod(upstream / "config.json", 0o600)
@@ -83,7 +99,9 @@ def install(root):
                             cwd=upstream, env=env, timeout=30, **options)
     if result.returncode:
         raise RuntimeError("Runtime import check failed; check upstream dependencies")
-    (root / "ready.json").write_text(json.dumps({"revision": REVISION}), encoding="utf-8")
+    staged_ready = root / "ready.json.tmp"
+    staged_ready.write_text(json.dumps({"revision": REVISION, "files": FILES}), encoding="utf-8")
+    os.replace(staged_ready, ready)
     progress("安装完成，账号配置已保留")
 
 

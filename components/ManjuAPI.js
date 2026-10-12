@@ -1,4 +1,5 @@
 import HongguoAPI, { cleanUrl, extractJson, toTagList } from "./HongguoAPI.js"
+import { shareUrl } from "./Http.js"
 
 /**
  * 红果漫剧（kylin.hainanyuyue.com 分享链接）数据源。
@@ -30,8 +31,12 @@ export const MANJU_SHARE_RE = /hainanyuyue\.com\/share\/video-animation-share/i
 
 /** 判断文本里是不是红果漫剧分享链接 */
 export function isManjuLink(value) {
-  const text = String(value ?? "")
-  return MANJU_HOST_RE.test(text) || MANJU_SHARE_RE.test(text)
+  try {
+    const url = shareUrl(pickUrl(value))
+    return url.hostname === "kylin.hainanyuyue.com" ||
+      (["hainanyuyue.com", "www.hainanyuyue.com"].includes(url.hostname) &&
+        url.pathname.startsWith("/share/video-animation-share"))
+  } catch { return false }
 }
 
 /** 从 text 里取出第一个 http(s) 链接 */
@@ -170,6 +175,7 @@ export default class ManjuAPI {
     for (let attempt = 0; attempt < SHARE_TRIES; attempt++) {
       try {
         const res = await this.hongguo.request(url, {
+          share: true,
           headers: { Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" }
         })
         const finalUrl = res.url || url
@@ -283,6 +289,7 @@ export default class ManjuAPI {
       total: official.episodes.length,
       accessible: official.accessible,
       source: "manju",
+      backend: "web",
       shareUrl: share.finalUrl,
       chapterId: share.chapterId,
       startIndex: share.order

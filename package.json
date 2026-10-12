@@ -4,6 +4,6 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test tests/workflow.test.mjs"
+    "test": "node --test tests/*.test.mjs"
   }
 }

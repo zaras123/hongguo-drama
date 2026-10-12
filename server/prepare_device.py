@@ -2,6 +2,7 @@
 import argparse
 import json
 import lzma
+import shlex
 from pathlib import Path
 import subprocess
 import sys
@@ -46,7 +47,7 @@ def prepare(adb, device):
     if direct_root:
         call("shell", command)
     else:
-        call("shell", "su", "-c", command)
+        call("shell", "su -c " + shlex.quote(command))
     time.sleep(2)
     if not call("shell", "pidof", "frida-server", allow_failure=True):
         raise RuntimeError("frida-server 未启动，请检查 root 权限和设备架构")

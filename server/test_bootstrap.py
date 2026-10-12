@@ -64,6 +64,35 @@ class BootstrapTests(unittest.TestCase):
         self.assertFalse((self.root / "ready.json").exists())
         self.assertTrue((self.root / "upstream" / "config.json").is_file())
 
+    def test_reinstall_repairs_missing_or_corrupt_files_and_preserves_session(self):
+        self.install()
+        config = self.root / "upstream/config.json"
+        config.write_bytes(b'{"session":"private"}')
+        (self.root / "upstream/sign_server.py").unlink()
+        (self.root / "upstream/frida/oracle.js").write_bytes(b"corrupt")
+        self.install()
+        for name, data in self.files.items():
+            self.assertEqual((self.root / "upstream" / name).read_bytes(), data)
+        self.assertEqual(config.read_bytes(), b'{"session":"private"}')
+
+    def test_failed_reinstall_revokes_old_ready_state(self):
+        self.install()
+        self.assertTrue((self.root / "ready.json").exists())
+        with self.assertRaises(RuntimeError):
+            self.install(result=1)
+        self.assertFalse((self.root / "ready.json").exists())
+        self.install()
+        self.assertTrue((self.root / "ready.json").exists())
+
+    def test_old_or_malformed_manifest_is_repaired(self):
+        self.install()
+        for manifest in ('{"revision":"old"}', '[]', '{broken'):
+            (self.root / "installed.json").write_text(manifest, encoding="utf-8")
+            self.install()
+            saved = json.loads((self.root / "installed.json").read_text())
+            self.assertEqual(saved["revision"], bootstrap.REVISION)
+            self.assertEqual(set(saved["files"]), set(bootstrap.FILES))
+
 
 if __name__ == "__main__":
     unittest.main()

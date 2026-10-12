@@ -27,7 +27,7 @@ const sid = "7664958856774044697"
 const vid = "7664961183094410265"
 const token = "management-secret"
 const state = { streamHits: 0, quality: "", login: false, key: "", broken: false }
-const mp4 = Buffer.concat([Buffer.from([0, 0, 0, 24]), Buffer.from("ftypisom"), Buffer.alloc(512)])
+const mp4 = await fs.readFile(new URL("fixtures/video.mp4", import.meta.url))
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, "http://localhost")
   const json = (status, body) => { res.writeHead(status, { "content-type": "application/json" }); res.end(JSON.stringify(body)) }
@@ -53,6 +53,7 @@ const server = http.createServer((req, res) => {
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve))
 const base = `http://127.0.0.1:${server.address().port}`
 const settings = { apiServer: base, apiKey: "download-key", sessionToken: token, tempDir: path.join(sandbox, "videos"),
+  ffprobePath: process.env.HG_FFPROBE || "ffprobe",
   streamQuality: "1080p", episodeRetries: 0, downloadRetries: 0, cleanupAfterSend: true }
 function instance() {
   const inst = new HongguoDrama()
@@ -91,7 +92,7 @@ test("share URL to HTTP episodes, download, send and cleanup", async () => {
   const e = { self_id: 1, user_id: 2, group_id: 3, msg: `https://hongguoduanju.com/player/${sid}/${vid}`,
     reply: async (message) => {
       if (message?.type === "video") {
-        assert.deepEqual(await fs.readFile(fileURLToPath(message.file)), mp4)
+        assert.deepEqual(await fs.readFile(message.file), mp4)
         videos++
       }
       return { message_id: 1 }
@@ -109,9 +110,10 @@ test("false video send result falls back to group file", async () => {
   const file = path.join(sandbox, "fallback.mp4")
   await fs.writeFile(file, mp4)
   let sent = 0
-  await instance().sendVideo({ reply: async () => false, group: { sendFile: async (input) => {
-    assert.equal(input, file); sent++; return { message_id: 2 }
-  } } }, file, "test")
+  await instance().sendVideo({ reply: async () => false, group: { fs: { upload: async (input, pid, name) => {
+    assert.equal(input, file); assert.equal(pid, "/"); assert.equal(name, "test.mp4")
+    sent++; return { message_id: 2 }
+  } } } }, file, "test")
   assert.equal(sent, 1)
 })
 
@@ -212,7 +214,8 @@ test("managed lifecycle provisions credentials, rejects busy ports and stops own
   await fs.mkdir(upstream, { recursive: true })
   await fs.mkdir(path.dirname(python), { recursive: true })
   await fs.writeFile(python, "fixture")
-  await fs.writeFile(path.join(root, "ready.json"), "{}")
+  await fs.writeFile(path.join(root, "ready.json"), JSON.stringify({ files: ["server.py", "sign_server.py"] }))
+  await fs.writeFile(path.join(upstream, "sign_server.py"), "# fixture")
   await fs.writeFile(path.join(upstream, "config.json"), "{}")
   await fs.copyFile(new URL("fixtures/server.py", import.meta.url), path.join(upstream, "server.py"))
   const managed = new ManagedRuntime(root)
