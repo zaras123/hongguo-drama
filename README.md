@@ -11,7 +11,6 @@
 红果漫剧 `kylin.hainanyuyue.com` 分享链接、短链、scheme 和剧集 ID，解析整部剧的分集列表，
 按集数下载视频并发到群里。群里直接发链接时，默认自动解析并下载分享链接指向的那一集。
 
-插件不接入 `qsign.x406.cn`，没有将它当作红果签名接口。普通官网链路不需要签名；App 数据源使用
 [zhangbaio/hongguo](https://github.com/zhangbaio/hongguo)，支持插件托管安装，也支持连接已有 API。
 
 ## 目录结构
