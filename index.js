@@ -386,23 +386,14 @@ export class HongguoDrama extends plugin {
   resolveAutoDownloadIndexes(series) {
     const total = series.episodes.length
     const raw = String(this.config.autoDownloadRange ?? "shared").trim().toLowerCase()
-    const canUseApiServer = this.api.serverEnabled() && this.config.preferApiServer !== false
 
     if (!raw || ["shared", "share", "分享集", "分享"].includes(raw)) {
-      let index = Math.max(1, Math.min(Number(series.startIndex) || 1, total))
+      const index = Math.max(1, Math.min(Number(series.startIndex) || 1, total))
       const accessible = Number(series.accessible) || 0
-      if (
-        series.source === "manju" &&
-        accessible > 0 &&
-        index > accessible &&
-        !canUseApiServer
-      ) {
-        return {
-          indexes: [1],
-          note: `分享链接指向第 ${index} 集，官网只开放前 ${accessible} 集，已自动改下第 1 集`
-        }
-      }
-      return { indexes: [index] }
+      const note = series.source === "manju" && accessible > 0 && index > accessible
+        ? `页面标记仅开放前 ${accessible} 集，仍优先尝试分享的第 ${index} 集`
+        : ""
+      return { indexes: [index], note }
     }
 
     if (["first", "首集", "第一集"].includes(raw)) return { indexes: [1] }
@@ -460,7 +451,8 @@ export class HongguoDrama extends plugin {
           const url = await this.api.getEpisodeUrl(series.seriesId, episode.vid, {
             prefer: this.episodePreference(attempt),
             index,
-            quality: this.config.streamQuality
+            quality: this.config.streamQuality,
+            attempt
           })
           const fromServer = this.api.isServerUrl(url)
           file = await this.api.download(url, name, {
@@ -472,7 +464,10 @@ export class HongguoDrama extends plugin {
             if (!fromServer) throw err
             this.api.lastServerError = err.message
             try {
-              const fallback = await this.api.getEpisodeUrl(series.seriesId, episode.vid, { prefer: "site" })
+              const fallback = await this.api.getEpisodeUrl(series.seriesId, episode.vid, {
+                prefer: "site",
+                attempt
+              })
               return await this.api.download(fallback, name, {
                 idleTimeout: Number(this.config.downloadIdleTimeout) || 60000,
                 retries: Number(this.config.downloadRetries) || 0

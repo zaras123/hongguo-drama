@@ -62,21 +62,79 @@ gh repo clone zaras123/hongguo-drama plugins/hongguo-drama
 | `#红果重载` | 主人重读配置 |
 
 选集支持 `1`、`1-3,5`、`第2集`、`1，2、4`、`全部`。
-明确指定的集数失败时不会替换内容。自动分享集模式下，漫剧若已回退官网且分享集超出开放范围，
-会提示并改下第 1 集；API 仍启用时会保留分享集，下载阶段按该集 vid 先请求上游解密流。
+明确指定的集数失败时不会替换内容。自动分享集模式始终优先尝试分享链接指向的那一集；
+页面里的开放集数只作为提示，不作为替换分享集的依据。重试时会重新取链并跳过失效缓存地址，
+API 启用时仍按该集 vid 优先请求上游解密流。
 
-## 功能流程
+## 插件流程
+
+### 1. 消息入口
 
 ~~~text
-分享消息 -> 官方域名检查 -> 受限短链跳转 -> 分集与当前集解析
-        -> API / 官网数据源 -> 会话缓存 -> 选集与并发限制
-        -> 实时取链 -> 下载 .part -> 响应范围/长度/ffprobe 检查
-        -> MP4 成品 -> 可选转码 -> 视频发送 -> 失败尝试文件
-        -> 清理临时文件、释放任务
+消息
+  -> 官方域名 / scheme 校验
+  -> 漫剧短链走 ManjuAPI，其余走 HongguoAPI
+  -> 自动解析或 #红果解析 / #红果下载
+  -> 解析结果写入 Bot + 用户会话缓存
 ~~~
 
-API 分集/搜索失败会回退官网，但只要 API 仍启用，下载阶段仍会按当前集 vid 先请求上游 /stream；
-这使漫剧元数据回退官网后仍可使用上游解密下载。API 流下载失败会尝试官网同集，即使整集重试设为 0。
+直接发分享链接时，`enableAutoParse` 决定是否识别，`autoDownload` 决定是否继续下载。
+自动分享集模式按 `autoDownloadRange: shared` 选择分享链接指向的集数。
+
+### 2. 漫剧：API 优先
+
+~~~text
+kylin / hainanyuyue 分享链接
+  -> 跟随短链，最多解析 3 次分享页
+  -> 读取 video_id、chapter_ids、used_chapter_id、chapter_order
+  -> apiServer 已配置、useApiServer=true 且 preferApiServer=true：
+       /episodes 成功且匹配 -> 使用上游剧集元数据
+       /episodes 失败或不匹配 -> 直接使用分享页 chapter_ids
+       backend=server，不要求官网播放页
+  -> 下载当前分享 vid：
+       /stream?vid=<vid>&quality=<quality>&api_key=...
+  -> 上游服务完成签名、取加密流、spade 解包、离线解密
+  -> 返回可播放 MP4；失败时回退官网同 vid
+~~~
+
+分享页里的 `chapter_ids` 是总集数的基准。官网的
+`accessible_episode_cnt` 只表示页面声明的开放范围，不参与总集数计算，也不会把分享集改成第 1 集。
+
+### 3. 漫剧：API 关闭后的官网路线
+
+~~~text
+分享页
+  -> 官网 /player/<series_id> 匹配 chapter_ids
+  -> 官网 vid_list 提供剧集与直链
+  -> 下载选中集
+  -> 重试时重新请求播放页
+  -> Range 探测直链，跳过失效缓存
+~~~
+
+完全关闭 API 的方式：
+
+~~~text
+#红果设置 服务地址 关闭
+~~~
+
+API 仍启用但 `/stream` 失败时，不切换到另一集，而是用同一个 vid 回退官网直链。
+
+### 4. 下载、发送与清理
+
+~~~text
+选中集号
+  -> 会话 / 全插件并发闸门
+  -> 每集按 attempt 选择 server 或 site 取链
+  -> 下载到 .part
+  -> 检查完整 200、长度、Content-Type、文件名和 MP4 视频轨道
+  -> 原子重命名为成品
+  -> 可选 H.264/AAC 转码
+  -> 视频消息发送，失败后尝试文件上传
+  -> 按 cleanupAfterSend 清理本地文件
+~~~
+
+`episodeRetries` 控制重新取链和整集重试，`downloadRetries` 控制单个直链的下载重试。
+上游路由失败时会尝试官网同集，即使 `episodeRetries=0`。明确指定的集数失败不会替换成其它集。
 漫剧分享页的短预览不作为正片。平台开放范围和账号权限以实际返回为准。
 
 ## 配置
@@ -101,6 +159,10 @@ API 分集/搜索失败会回退官网，但只要 API 仍启用，下载阶段�
 | ffprobePath / ffmpegPath | ffprobe / ffmpeg | 可执行文件路径 |
 | sessionTTL | 1800 | 缓存有效秒数 |
 | apiServer / apiKey / sessionToken | 空 | API 根地址 / 下载 Key / 独立登录管理 Key |
+| useApiServer / preferApiServer | true / true | 是否启用 API / 是否优先使用上游解密流 |
+| streamQuality | best | 上游清晰度；低档可能是 bytevc2，默认 best |
+| apiServerTimeout / apiServerIdleTimeout | 180000 / 300000 | API 请求 / 长时间串流空闲时限 |
+| manjuEnable / manjuSearchLimit | true / 5 | 漫剧支持 / 官网匹配搜索上限 |
 
 其余配置见 `config/default_config/config.yaml`。例如：
 

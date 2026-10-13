@@ -147,9 +147,9 @@ export function manjuLimitHint(series) {
   const total = Number(series?.total) || Number(series?.episodes?.length) || 0
   const accessible = Number(series?.accessible) || 0
   if (accessible > 0 && total > accessible) {
-    return `红果官网只开放前 ${accessible} 集，其余 ${total - accessible} 集需要配置 apiServer 走自建签名服务`
+    return `页面标记开放前 ${accessible} 集，实际以下载结果为准；其余集数可配置 apiServer 提高成功率`
   }
-  if (accessible > 0) return `红果官网当前开放 ${accessible} 集`
+  if (accessible > 0) return `页面标记当前开放 ${accessible} 集，实际以下载结果为准`
   return "漫剧正片需要签名接口，可在配置里填 apiServer 走自建服务"
 }
 
@@ -266,14 +266,33 @@ export default class ManjuAPI {
   async getSeriesByInput(input) {
     const share = await this.resolveShare(input)
     if (this.hongguo.serverEnabled() && this.config.preferApiServer !== false && ID_RE.test(share.videoId)) {
+      let enriched = null
       try {
         const series = await this.hongguo.serverSeries(share.videoId)
-        if (!this.scoreOfficial(series, share).ok) throw new Error("自建服务分集与分享页不匹配")
-        const position = series.episodes.findIndex((episode) => episode.vid === share.chapterId)
-        return { ...series, source: "manju", backend: "server", shareUrl: share.finalUrl,
-          chapterId: share.chapterId, startIndex: position >= 0 ? position + 1 : share.order }
+        if (this.scoreOfficial(series, share).ok) enriched = series
       } catch (err) {
         this.lastError = err
+      }
+
+      const episodes = enriched?.episodes?.length
+        ? enriched.episodes
+        : share.chapterIds.map((vid, index) => ({ vid, index: index + 1, title: "" }))
+      const position = episodes.findIndex((episode) => episode.vid === share.chapterId)
+      return {
+        seriesId: enriched?.seriesId || share.videoId,
+        title: share.title || enriched?.title || "未命名漫剧",
+        cover: share.cover || enriched?.cover || "",
+        intro: share.intro || enriched?.intro || "",
+        tags: share.tags.length ? share.tags : enriched?.tags || [],
+        episodeCnt: episodes.length,
+        episodes,
+        total: episodes.length,
+        accessible: 0,
+        source: "manju",
+        backend: "server",
+        shareUrl: share.finalUrl,
+        chapterId: share.chapterId,
+        startIndex: position >= 0 ? position + 1 : share.order
       }
     }
     const official = await this.resolveOfficial(share)

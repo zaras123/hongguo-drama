@@ -1,6 +1,7 @@
 # 部署、登录与排错
 
-推荐先跑通官网路线，再启用 App 服务。三条路线共用一个插件，不要重复启动同端口 API。
+官网路线适合先验证插件加载；要稳定下载分享集，配置托管 App 服务或已有 API。
+三条路线共用一个插件，不要重复启动同端口 API。
 
 ## 基础环境
 
@@ -28,6 +29,7 @@
 
 官网可能只开放部分集数；纯推广短链没有内容 ID 时会失败。
 `https://kylin.hainanyuyue.com/s/m9hyQxiK494/` 是漫剧短链示例，旧样本开放范围不是永久承诺。
+该路线只负责解析和官网明文直链；API 配置为空或 `preferApiServer=false` 时才完全走这里。
 
 ## 路线 B：插件托管 App 服务
 
@@ -49,6 +51,18 @@ Linux 可能需 python3-venv。插件不安装模拟器、不获取 root、不�
 #红果启动
 #红果登录
 ~~~
+
+服务启动后，漫剧分享链接的流程变为：
+
+~~~text
+分享页 -> video_id + chapter_ids + 当前 vid
+       -> 上游 /stream?vid=<当前 vid>
+       -> 上游签名、取密文、spade 解包、离线解密
+       -> 插件下载明文 MP4
+~~~
+
+`/episodes` 只用于补充剧名、封面等元数据；失败时仍使用分享页的 `chapter_ids`，
+不会阻断当前分享集下载。
 
 PATH 已配置可跳过工具设置；App 已安装可跳过安装App。
 网络设备可先 `#红果连接 地址:端口`，成功后自动选中。
@@ -113,9 +127,11 @@ Python 为 `.venv/Scripts/python.exe`。路径、设备、端口、占位密钥�
 远程优先私网或 HTTPS；代理支持长时间 /stream 和 POST /admin/session/start、/sync。
 日志不要记录 api_key 查询串。ADB、Frida、签名服务及 /grab 不可公开到互联网。
 
-漫剧即使官网元数据解析成功，也会在下载时优先把当前集 vid 交给上游
-/stream?vid=...&quality=... 解密；因此不要求上游 /episodes 必须先匹配到整部漫剧。
-上游流失败后才回退官网同集，官网仍未开放时会明确报告失败。
+漫剧在 apiServer 已配置、useApiServer=true 且 preferApiServer=true 时，
+直接使用分享页的 video_id、chapter_ids 和当前 vid，
+不要求官网元数据或上游 /episodes 成功；下载时优先调用
+/stream?vid=...&quality=... 解密。上游流失败后才回退官网同集，
+官网仍未开放时会明确报告失败。
 
 ## 视频发送
 
@@ -144,6 +160,9 @@ HEVC 可下载不代表 QQ 客户端可播，必要时转 H.264/AAC。转码不�
 | 安装失败 / 未就绪 | 检查 Python 3.10+、venv、GitHub/pip、磁盘，停止后重装 |
 | 设备准备失败 | 检查 ADB 授权、已有 root、App、架构和 Frida 版本 |
 | 有凭证但下载失败 | App 内确认身份及权限，打开视频页后重新同步 |
+| 漫剧集数正确但 /stream 失败 | 检查签名服务、设备 App、API Key；插件会用同一 vid 回退官网同集 |
+| /episodes 返回 503 但分享集可下 | 正常容错；API 优先模式直接使用分享页 chapter_ids，不依赖 /episodes |
+| 已下载但 QQ 不能播放 | 上游 1080p 可能是 HEVC；开启 H.264/AAC 转码 |
 | YAML 修改未生效 | settings.json 优先，使用命令设置修改覆盖值 |
 
 `config/config`、`runtime` 及备份含敏感配置，不提交 Git。更新前停止、私有备份，

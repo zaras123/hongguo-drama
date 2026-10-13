@@ -183,12 +183,13 @@ test("native group files, wrapper group files and friend files have separate con
   await assert.rejects(inst.sendVideo({}, file, "title"), /不支持文件/)
 })
 
-test("configured API keeps the shared manju episode for upstream vid download", () => {
+test("shared manju episode is always attempted first regardless of volatile accessible metadata", () => {
   const inst = new HongguoDrama()
   inst.api = api
   const series = { source: "manju", backend: "web", startIndex: 5, accessible: 3,
     episodes: Array.from({ length: 8 }, (_, index) => ({ index: index + 1 })) }
   assert.deepEqual(inst.resolveAutoDownloadIndexes(series).indexes, [5])
+  assert.match(inst.resolveAutoDownloadIndexes(series).note, /仍优先尝试分享的第 5 集/)
   assert.deepEqual(inst.resolveAutoDownloadIndexes({ ...series, backend: "server" }).indexes, [5])
   assert.equal(inst.episodePreference(0), "server")
   assert.equal(inst.episodePreference(1), "site")
@@ -197,11 +198,31 @@ test("configured API keeps the shared manju episode for upstream vid download", 
     const noApi = new HongguoDrama()
     noApi.config = { ...noApi.config, ...config }
     noApi.api = new HongguoAPI(noApi.config)
-    assert.deepEqual(noApi.resolveAutoDownloadIndexes(series).indexes, [1])
+    assert.deepEqual(noApi.resolveAutoDownloadIndexes(series).indexes, [5])
     assert.equal(noApi.episodePreference(0), "site")
     noApi.config.autoDownloadRange = "5"
     assert.deepEqual(noApi.resolveAutoDownloadIndexes(series).indexes, [5])
   }
+})
+
+test("retry probes stale site URLs and advances to the next player candidate", async () => {
+  const retryApi = new HongguoAPI({ siteOrigin: "https://hongguoduanju.com" })
+  const calls = []
+  retryApi.getText = async (url) => {
+    calls.push(url)
+    return JSON.stringify({
+      contentUrl: calls.length === 1
+        ? "https://cdn.example.com/stale.mp4"
+        : "https://cdn.example.com/good.mp4"
+    })
+  }
+  retryApi.probeMediaUrl = async (url) => url.endsWith("/good.mp4")
+  assert.equal(
+    await retryApi.siteEpisodeUrl(sid, vids[0], { attempt: 1 }),
+    "https://cdn.example.com/good.mp4"
+  )
+  assert.equal(calls.length, 2)
+  assert.ok(calls.every((url) => url.includes("hg_retry=1-")))
 })
 
 test("parse concurrency gate is shared and released after failure", async () => {

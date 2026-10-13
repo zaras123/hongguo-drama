@@ -109,7 +109,7 @@ test("share URL to HTTP episodes, download, send and cleanup", async () => {
   assert.equal(nextInstance.getSeries({ ...e, self_id: 99 }), null)
 })
 
-test("failed manju metadata still downloads and sends shared episode five through upstream vid", async () => {
+test("failed manju metadata still downloads shared episode five through upstream vid", async () => {
   const inst = instance()
   const before = state.streamHits
   const messages = []
@@ -120,7 +120,7 @@ test("failed manju metadata still downloads and sends shared episode five throug
   } } })
   inst.manju = new ManjuAPI(inst.config)
   inst.manju.hongguo.request = async () => ({ url: "https://hainanyuyue.com/share/video-animation-share", text: async () => share })
-  inst.manju.hongguo.getText = async () => JSON.stringify({ series_name: "Fixture", vid_list: vids, accessible_episode_cnt: 3 })
+  inst.manju.hongguo.getText = async () => assert.fail("configured API must not require the official site")
   inst.api.siteEpisodeUrl = async () => assert.fail("upstream success must not request the site video")
   const e = { user_id: 7, msg: "https://kylin.hainanyuyue.com/s/fixture", reply: async (message) => {
     if (message?.type === "video") assert.deepEqual(await fs.readFile(message.file), mp4)
@@ -129,9 +129,10 @@ test("failed manju metadata still downloads and sends shared episode five throug
   } }
   state.metadataBroken = true
   try { await inst.autoParse(e) } finally { state.metadataBroken = false }
-  assert.equal(inst.getSeries(e).backend, "web")
+  assert.equal(inst.getSeries(e).backend, "server")
   assert.equal(inst.getSeries(e).startIndex, 5)
-  assert.equal(inst.getSeries(e).accessible, 3)
+  assert.equal(inst.getSeries(e).episodes.length, 5)
+  assert.equal(inst.getSeries(e).episodes[4].vid, vid)
   assert.equal(state.streamHits, before + 1)
   assert.equal(state.streamVid, vid)
   assert.equal(state.quality, "1080p")

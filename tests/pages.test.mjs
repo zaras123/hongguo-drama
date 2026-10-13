@@ -64,14 +64,25 @@ test("failed API metadata falls back to official site", async () => {
 
 test("manju web fallback records actual backend and accessible episode count", async () => {
   assert.equal(parseManjuShare(share).order, 2)
-  const api = new ManjuAPI({ apiServer: "http://127.0.0.1:1" })
+  const api = new ManjuAPI({ apiServer: "" })
   api.hongguo.request = async () => ({ url: "https://hainanyuyue.com/share/video-animation-share", text: async () => share })
-  api.hongguo.serverSeries = async () => { throw new Error("offline") }
   api.hongguo.getText = async () => html
   const series = await api.getSeriesByInput("https://kylin.hainanyuyue.com/s/fixture")
   assert.equal(series.backend, "web")
   assert.equal(series.accessible, 1)
   assert.equal(series.startIndex, 2)
+})
+
+test("manju API route uses share chapter IDs when upstream metadata is unavailable", async () => {
+  const api = new ManjuAPI({ apiServer: "http://127.0.0.1:1" })
+  api.hongguo.request = async () => ({ url: "https://hainanyuyue.com/share/video-animation-share", text: async () => share })
+  api.hongguo.serverSeries = async () => { throw new Error("episodes unavailable") }
+  api.hongguo.getText = async () => assert.fail("official site must not be required when apiServer is configured")
+  const series = await api.getSeriesByInput("https://kylin.hainanyuyue.com/s/fixture")
+  assert.equal(series.backend, "server")
+  assert.equal(series.episodes.length, 3)
+  assert.equal(series.startIndex, 2)
+  assert.equal(series.episodes[1].vid, vids[1])
 })
 
 test("manju API success does not require official site and keeps shared episode", async () => {

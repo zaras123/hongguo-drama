@@ -18,7 +18,7 @@ enableAutoParse: true
 # 群里发链接时自动下载。false = 只回复剧集信息
 autoDownload: true
 
-# 自动下载选集：shared = 下载分享链接指向的那一集，first = 第1集
+# 自动下载选集：shared = 始终优先下载分享链接指向的那一集，first = 第1集
 # 也可以直接写 1、1-3、全部，仍受 maxEpisodesPerRequest 限制
 autoDownloadRange: "shared"
 

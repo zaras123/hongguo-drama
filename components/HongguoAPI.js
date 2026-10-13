@@ -625,28 +625,71 @@ export default class HongguoAPI {
       const url = this.buildStreamUrl({ seriesId, vid, index: options.index, quality: options.quality })
       if (url) return url
     }
-    return await this.siteEpisodeUrl(seriesId, vid)
+    return await this.siteEpisodeUrl(seriesId, vid, options)
   }
 
-  /** 官网解析：取单集明文 MP4 直链（优先 contentUrl，兜底 main_url） */
-  async siteEpisodeUrl(seriesId, vid) {
+  /**
+   * 官网解析：取单集明文 MP4 直链（优先 contentUrl，兜底 main_url）。
+   * 重试时先用 Range 探测直链，跳过已失效的缓存地址。
+   */
+  async siteEpisodeUrl(seriesId, vid, options = {}) {
+    const attempt = Math.max(0, Math.trunc(Number(options.attempt) || 0))
+    const retryQuery = attempt > 0 ? `hg_retry=${attempt}-${Date.now()}` : ""
     const candidates = []
-    if (seriesId) candidates.push(`${this.site}/player/${String(seriesId).trim()}/${String(vid).trim()}`)
-    candidates.push(`${this.site}/player/_/${String(vid).trim()}`)
+    if (seriesId) {
+      const base = `${this.site}/player/${String(seriesId).trim()}/${String(vid).trim()}`
+      candidates.push(retryQuery ? `${base}?${retryQuery}` : base)
+    }
+    const fallbackBase = `${this.site}/player/_/${String(vid).trim()}`
+    candidates.push(retryQuery ? `${fallbackBase}?${retryQuery}` : fallbackBase)
 
     let lastError = null
+    let lastDirect = ""
     for (const url of candidates) {
       try {
-        const html = await this.getText(url)
+        const html = await this.getText(url, attempt > 0
+          ? { headers: { "Cache-Control": "no-cache", Pragma: "no-cache" } }
+          : {})
         const raw = extractString(html, "contentUrl") || extractString(html, "main_url")
         const direct = cleanUrl(raw)
-        if (/^https?:\/\//i.test(direct)) return direct
+        if (/^https?:\/\//i.test(direct)) {
+          lastDirect = direct
+          if (attempt === 0 || await this.probeMediaUrl(direct)) return direct
+          lastError = new Error("播放直链暂时不可用")
+          continue
+        }
         lastError = new Error("页面里没有可用的播放地址")
       } catch (err) {
         lastError = err
       }
     }
-    throw new Error(`未能获取 ${vid} 的播放直链：${lastError?.message || "未知错误"}`)
+    const detail = lastDirect ? `${lastError?.message || "直链探测失败"}：${lastDirect}` : lastError?.message || "未知错误"
+    throw new Error(`未能获取 ${vid} 的播放直链：${detail}`)
+  }
+
+  /** 重试时用小范围请求探测直链，避免把平台缓存中的 404 地址交给下载器。 */
+  async probeMediaUrl(url) {
+    const controller = new AbortController()
+    const timeout = Math.min(Number(this.config.requestTimeout) || 30000, 15000)
+    const timer = setTimeout(() => controller.abort(new Error("媒体探测超时")), timeout)
+    try {
+      const res = await followResponse(url, {
+        headers: this.baseHeaders({
+          Accept: "video/mp4,video/*;q=0.9,*/*;q=0.8",
+          Range: "bytes=0-1"
+        }),
+        signal: controller.signal
+      })
+      const type = res.headers.get("content-type") || ""
+      const ok = res.ok && !/json|text\//i.test(type)
+      res.body?.destroy()
+      return ok
+    } catch {
+      return false
+    } finally {
+      controller.abort()
+      clearTimeout(timer)
+    }
   }
 
   /** 关键词搜索 */
