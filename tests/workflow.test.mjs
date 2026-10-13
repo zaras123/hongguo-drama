@@ -20,7 +20,9 @@ const { HongguoDrama } = await import(pathToFileURL(path.join(pluginDir, "index.
 const { default: HongguoAPI } = await import(pathToFileURL(path.join(pluginDir, "components", "HongguoAPI.js")))
 const { default: ManjuAPI } = await import(pathToFileURL(path.join(pluginDir, "components", "ManjuAPI.js")))
 const { default: SessionAPI } = await import(pathToFileURL(path.join(pluginDir, "components", "SessionAPI.js")))
-const { prepareVideo } = await import(pathToFileURL(path.join(pluginDir, "components", "Video.js")))
+const { prepareVideo, validateMp4Structure, validateVideo } = await import(
+  pathToFileURL(path.join(pluginDir, "components", "Video.js"))
+)
 const { default: Config } = await import(pathToFileURL(path.join(pluginDir, "components", "Config.js")))
 const { ManagedRuntime } = await import(pathToFileURL(path.join(pluginDir, "components", "ManagedRuntime.js")))
 const { parseSetting } = await import(pathToFileURL(path.join(pluginDir, "components", "Settings.js")))
@@ -231,6 +233,17 @@ test("H.264 conversion produces a real playable MP4", { skip: !process.env.HG_TE
   const info = JSON.parse(execFileSync(ffprobePath, ["-v", "error", "-show_streams", "-of", "json", converted]))
   assert.equal(info.streams[0].codec_name, "h264")
   assert.equal(info.streams[0].pix_fmt, "yuv420p")
+})
+
+test("built-in MP4 validation works when ffprobe is unavailable", async () => {
+  const fixture = path.join(root, "tests", "fixtures", "video.mp4")
+  const streams = await validateVideo(fixture, {
+    ffprobePath: path.join(sandbox, "missing-ffprobe")
+  })
+  assert.equal(streams.some((stream) => stream.codec_type === "video"), true)
+  const bad = path.join(sandbox, "not-video.mp4")
+  await fs.writeFile(bad, "not an mp4")
+  await assert.rejects(validateMp4Structure(bad))
 })
 
 test("management commands match their rules and reject non-owner/group usage", async () => {

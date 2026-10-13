@@ -22,7 +22,7 @@
 环境要求：
 
 - Node.js 20.19+ 或 22.12+
-- `ffprobe`，用于检查 MP4 和视频轨道
+- `ffprobe` 可选；缺失时使用内置 MP4 结构检查
 - 转码需要带 `libx264` 的 `ffmpeg`
 - API 路线另需 Python 3.10+、ADB 和已 root 的设备或模拟器
 
@@ -42,7 +42,8 @@ git clone https://github.com/zaras123/hongguo-drama.git plugins/hongguo-drama
 
 ## 使用
 
-直接把分享链接发给 Bot，插件会解析并下载分享集。
+安装后直接把分享链接发给 Bot，插件会解析并下载分享集。未安装内置 API 时会自动使用官网路线，
+不需要额外配置 Python、ADB 或 Android 设备。
 
 | 命令 | 作用 |
 | --- | --- |

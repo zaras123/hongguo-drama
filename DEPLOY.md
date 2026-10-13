@@ -4,7 +4,7 @@
 
 - Yunzai 或 TRSS-Yunzai
 - Node.js 20.19+ 或 22.12+
-- `ffprobe`
+- `ffprobe` 可选；缺失时使用内置 MP4 检查
 - 转码需要带 `libx264` 的 `ffmpeg`
 
 把完整仓库放到 `plugins/hongguo-drama` 后重启 Bot。
@@ -16,13 +16,14 @@ git clone https://github.com/zaras123/hongguo-drama.git plugins/hongguo-drama
 
 ## 路线 A：官网解析下载
 
-插件默认使用内置 API。若暂时不准备设备和 App，可以显式关闭 API，只走官网。
+这是默认开箱可用路线。插件未检测到可用的内置 API 时，会自动使用官网，
+不需要配置 Python、ADB 或 Android 设备。
 
 ~~~text
 #红果设置 服务地址 关闭
 ~~~
 
-然后：
+如果需要显式禁用所有 API 尝试，可以使用上一条命令。然后：
 
 1. 不需要 Python 和 Android 设备。
 2. 把用户有权访问的分享链接发给 Bot。
@@ -39,7 +40,7 @@ git clone https://github.com/zaras123/hongguo-drama.git plugins/hongguo-drama
 
 ## 路线 B：插件托管 App 服务
 
-这是稳定下载分享集的推荐路线，也是插件的默认模式。
+这是稳定下载分享集的推荐路线，只有安装并启动内置服务后才会自动启用。
 
 额外要求：
 
