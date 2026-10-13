@@ -118,7 +118,34 @@ export default class Config {
     const defaults = this.readFile(this.defaultFile(name))
     const user = this.readFile(this.runtimeFile(name))
     const settings = name === DEFAULT_NAME ? this.getSettings() : {}
-    return { ...defaults, ...user, ...settings }
+    const config = { ...defaults, ...user, ...settings }
+    return name === DEFAULT_NAME ? this.resolveBuiltinApi(config) : config
+  }
+
+  static isBuiltinApi(value) {
+    return ["builtin", "local", "auto", "内置"].includes(String(value || "").trim().toLowerCase())
+  }
+
+  static getBuiltinService() {
+    const file = path.join(pluginDir, "runtime", "service.json")
+    try {
+      const value = JSON.parse(fs.readFileSync(file, "utf8"))
+      return value && typeof value === "object" && !Array.isArray(value) ? value : {}
+    } catch {
+      return {}
+    }
+  }
+
+  static resolveBuiltinApi(config) {
+    if (!this.isBuiltinApi(config.apiServer)) return config
+    const service = this.getBuiltinService()
+    const port = Number(service.port) || Number(config.managedPort) || 18780
+    return {
+      ...config,
+      apiServer: `http://127.0.0.1:${port}`,
+      apiKey: config.apiKey || service.apiKey || "",
+      sessionToken: config.sessionToken || service.sessionToken || ""
+    }
   }
 
   static getSettings() {

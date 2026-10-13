@@ -82,6 +82,15 @@ test("share URLs reject host tricks, credentials, private hosts and unusual port
   assert.equal(internalHits, 0)
 })
 
+test("builtin API alias resolves to the plugin-managed local service", () => {
+  const builtin = new HongguoAPI({ apiServer: "builtin", managedPort: 19999 })
+  assert.equal(builtin.server, "http://127.0.0.1:19999")
+  assert.equal(builtin.serverEnabled(), true)
+  const disabled = new HongguoAPI({ apiServer: "", managedPort: 19999 })
+  assert.equal(disabled.server, "")
+  assert.equal(disabled.serverEnabled(), false)
+})
+
 test("DNS guards block private and mapped addresses before opening a socket", async () => {
   assert.equal(isPublicAddress("2001:4860:4860::8888"), true)
   assert.equal(isPublicAddress("93.184.216.34"), true)

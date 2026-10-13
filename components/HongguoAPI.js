@@ -246,7 +246,10 @@ export default class HongguoAPI {
     this.ua = this.config.userAgent || DEFAULT_UA
     this.timeout = Number(this.config.requestTimeout) || 30000
     this.downloadTimeout = Number(this.config.downloadTimeout) || 600000
-    this.server = String(this.config.apiServer || "").replace(/\/+$/, "")
+    const configuredServer = String(this.config.apiServer || "").trim()
+    this.server = ["builtin", "local", "auto", "内置"].includes(configuredServer.toLowerCase())
+      ? `http://127.0.0.1:${Number(this.config.managedPort) || 18780}`
+      : configuredServer.replace(/\/+$/, "")
     this.apiKey = String(this.config.apiKey || "")
     this.serverTimeout = Number(this.config.apiServerTimeout) || 180000
     /** 最近一次自建服务报错，便于排查为什么回退了官网 */

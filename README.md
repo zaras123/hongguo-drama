@@ -10,6 +10,7 @@
 
 - 支持 Yunzai 和 TRSS-Yunzai。
 - 支持短剧、漫剧分享链接、官方短链和 App scheme。
+- 内置托管 API 服务，默认优先使用，失败自动回退官网。
 - 默认自动下载分享链接指向的集数。
 - 支持指定集数、重试、官网回退、H.264/AAC 转码和 base64 传输。
 - 支持主人私聊管理上游服务、Android 设备和 App 登录同步。
@@ -72,9 +73,10 @@ git clone https://github.com/zaras123/hongguo-drama.git plugins/hongguo-drama
 
 官网只开放部分集数时，插件仍优先尝试分享集。页面开放数只作为提示，不参与总集数和分享集选择。
 
-### API 路线
+### 内置 API 路线
 
-配置 `apiServer` 后，漫剧优先走上游签名解密服务。
+默认 `apiServer: builtin`。首次先发送 `#红果安装`，再按 [部署说明](DEPLOY.md)
+准备设备和启动服务；服务启动后插件会自动读取本地地址和密钥。
 
 ~~~text
 分享链接
@@ -87,6 +89,7 @@ git clone https://github.com/zaras123/hongguo-drama.git plugins/hongguo-drama
 ~~~
 
 `/episodes` 失败不影响分享集下载。`/stream` 失败时，插件会用同一个 vid 回退官网。
+未安装、未启动或设备未就绪时，内置 API 连接失败会自动使用官网路线。
 
 ## 常用配置
 
@@ -102,7 +105,7 @@ git clone https://github.com/zaras123/hongguo-drama.git plugins/hongguo-drama
 | sendType | video | 发送视频或文件 |
 | videoTransport | file | file 或 base64 |
 | transcodeVideo | false | 是否转为 H.264/AAC |
-| apiServer | 空 | 私密 API 服务地址 |
+| apiServer | builtin | 内置 API；可填远程地址或关闭 |
 | apiKey | 空 | 上游下载 Key |
 | preferApiServer | true | 是否优先使用 API 解密流 |
 
@@ -111,6 +114,8 @@ git clone https://github.com/zaras123/hongguo-drama.git plugins/hongguo-drama
 ~~~text
 #红果设置 自动下载 关
 #红果设置 选集 shared
+#红果设置 服务地址 内置
+#红果设置 服务地址 关闭
 #红果设置 发送方式 文件
 #红果设置 传输 base64
 #红果设置 转码 开

@@ -76,22 +76,21 @@ tempDir: "./temp"
 siteOrigin: "https://hongguoduanju.com"
 userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
 
-# ===== 可选：自建红果 API 服务（zhangbaio/hongguo 的 server.py）=====
-# 配好后优先从自建服务取「已解密的可播 MP4」，失败会自动回退上面的官网解析。
-# 留空表示不使用自建服务。
-apiServer: ""
-# 服务端 /admin 生成的 api_key（上游强制鉴权，必须填；不是 ADMIN_TOKEN）
+# ===== 内置红果 API 服务（zhangbaio/hongguo 的 server.py）=====
+# builtin = 使用插件托管的本地 API；首次使用先发 #红果安装、#红果启动
+# 也可以填远程 HTTP(S) 地址，或填“关闭”改用官网。
+apiServer: "builtin"
+# builtin 模式留空，启动后自动读取 runtime/service.json；远程服务才需填写
 apiKey: ""
-# 配套 run_bridge.py 的 HONGGUO_SESSION_TOKEN；仅用于主人私聊登录管理
-# 至少 16 字符，必须和普通 apiKey、ADMIN_TOKEN 分开设置
+# builtin 模式留空，启动后自动读取；远程服务填写独立登录管理 Key
 sessionToken: ""
-# 是否启用自建服务（false = 只走官网解析）
+# 是否启用 API 服务（false = 只走官网解析）
 useApiServer: true
-# 配了 apiServer 时是否优先使用它
+# API 可用时是否优先使用解密流
 preferApiServer: true
 # 清晰度：best / 1080p / 720p / 540p / 480p / 360p
 # 注意服务端 720p 及以下是 bytevc2 编码，部分播放器解不了，默认 best 取 1080p(HEVC)
 streamQuality: "best"
-# 自建服务首次要现签名+下载+解密，可能较慢，因此超时给得更宽松
+# 首次取流要现签名+下载+解密，可能较慢，因此超时给得更宽松
 apiServerTimeout: 180000
 apiServerIdleTimeout: 300000

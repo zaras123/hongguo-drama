@@ -249,6 +249,8 @@ test("management commands match their rules and reject non-owner/group usage", a
 
 test("settings persist quotes and paths, mask secrets and refresh another instance", async () => {
   assert.deepEqual(parseSetting('ADB "C:/Program Files/adb.exe"'), { key: "adbPath", value: "C:/Program Files/adb.exe", secret: false })
+  assert.deepEqual(parseSetting("服务地址 内置"), { key: "apiServer", value: "builtin", secret: false })
+  assert.deepEqual(parseSetting("服务地址 关闭"), { key: "apiServer", value: "", secret: false })
   assert.equal(parseSetting("自动下载 关").value, false)
   assert.throws(() => parseSetting("端口 22"))
   assert.throws(() => parseSetting("未知 anything"))

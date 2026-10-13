@@ -147,10 +147,10 @@ export function manjuLimitHint(series) {
   const total = Number(series?.total) || Number(series?.episodes?.length) || 0
   const accessible = Number(series?.accessible) || 0
   if (accessible > 0 && total > accessible) {
-    return `页面标记开放前 ${accessible} 集，实际以下载结果为准；其余集数可配置 apiServer 提高成功率`
+    return `页面标记开放前 ${accessible} 集，实际以下载结果为准；其余集数可启动内置 API 提高成功率`
   }
   if (accessible > 0) return `页面标记当前开放 ${accessible} 集，实际以下载结果为准`
-  return "漫剧正片需要签名接口，可在配置里填 apiServer 走自建服务"
+  return "漫剧正片需要签名接口，可启动插件内置 API 服务"
 }
 
 export default class ManjuAPI {

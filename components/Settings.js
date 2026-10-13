@@ -34,6 +34,7 @@ export function parseSetting(text) {
     if (!enums[key].includes(value)) throw new Error("可选值：" + enums[key].join("、"))
   } else if (["apiServer", "externalSignServer"].includes(key)) {
     if (value === "关闭") value = ""
+    else if (key === "apiServer" && ["内置", "builtin", "local", "auto"].includes(value.toLowerCase())) value = "builtin"
     else {
       const url = new URL(value)
       if (!["http:", "https:"].includes(url.protocol) || url.username || url.password || url.search || url.hash) {
@@ -55,5 +56,6 @@ export const settingsHelp = [
   "清晰度 best|1080p|720p；每次集数 1-100；大小上限 MB",
   "发送方式 视频|文件；传输 file|base64；转码 开|关",
   "FFmpeg / FFprobe 可执行文件路径",
+  "API：服务地址 内置|http(s)地址|关闭",
   "已有远程服务：服务地址 / 下载密钥 / 登录密钥"
 ].join("\n")

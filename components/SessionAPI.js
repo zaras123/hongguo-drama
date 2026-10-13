@@ -4,7 +4,11 @@ export default class SessionAPI {
   }
 
   async request(action = "") {
-    const { apiServer, sessionToken } = this.config
+    const { sessionToken } = this.config
+    const configured = String(this.config.apiServer || "").trim()
+    const apiServer = ["builtin", "local", "auto", "内置"].includes(configured.toLowerCase())
+      ? `http://127.0.0.1:${Number(this.config.managedPort) || 18780}`
+      : configured
     if (!apiServer || !sessionToken) throw new Error("请先私聊发送 #红果管理，完成安装和启动；已有远程服务可通过 #红果设置 配置地址和登录密钥")
     if (!["", "start", "sync"].includes(action)) throw new Error("无效的登录操作")
     const base = new URL(apiServer)

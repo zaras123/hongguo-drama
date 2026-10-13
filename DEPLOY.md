@@ -16,24 +16,30 @@ git clone https://github.com/zaras123/hongguo-drama.git plugins/hongguo-drama
 
 ## 路线 A：官网解析下载
 
-不需要 Python 和 Android 设备。
+插件默认使用内置 API。若暂时不准备设备和 App，可以显式关闭 API，只走官网。
 
-1. 保持 `apiServer` 为空。
+~~~text
+#红果设置 服务地址 关闭
+~~~
+
+然后：
+
+1. 不需要 Python 和 Android 设备。
 2. 把用户有权访问的分享链接发给 Bot。
 3. 插件解析剧集，默认下载分享链接指向的集数。
 
-如果需要完全关闭已经配置过的 API：
+要重新启用内置 API：
 
 ~~~text
-#红果停止
-#红果设置 服务地址 关闭
+#红果设置 服务地址 内置
+#红果启动
 ~~~
 
 官网开放范围会变化。分享集始终优先，插件不会因为页面显示开放数较少就自动改成第 1 集。
 
 ## 路线 B：插件托管 App 服务
 
-这是稳定下载分享集的推荐路线。
+这是稳定下载分享集的推荐路线，也是插件的默认模式。
 
 额外要求：
 
@@ -76,10 +82,11 @@ git clone https://github.com/zaras123/hongguo-drama.git plugins/hongguo-drama
 ~~~
 
 `/episodes` 失败不影响分享集下载。`/stream` 失败时回退官网同 vid。
+服务启动后地址和密钥会自动写入配置，不需要手工填写。
 
 ## 路线 C：已有 API 服务
 
-已有 `zhangbaio/hongguo` 服务时，不再启动插件的托管服务。
+已有 `zhangbaio/hongguo` 服务时，把服务地址改为远程地址，不再启动插件的托管服务。
 
 主人私聊配置：
 
