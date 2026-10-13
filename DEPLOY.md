@@ -28,7 +28,7 @@
 ~~~
 
 官网可能只开放部分集数；纯推广短链没有内容 ID 时会失败。
-`https://kylin.hainanyuyue.com/s/m9hyQxiK494/` 是漫剧短链示例，旧样本开放范围不是永久承诺。
+示例仅描述 `https://kylin.hainanyuyue.com/s/<share_id>` 形态，具体分享链接以用户有权访问的内容为准。
 该路线只负责解析和官网明文直链；API 配置为空或 `preferApiServer=false` 时才完全走这里。
 
 ## 路线 B：插件托管 App 服务
@@ -126,6 +126,7 @@ Python 为 `.venv/Scripts/python.exe`。路径、设备、端口、占位密钥�
 此路线不要再启动插件的本地托管服务。Bot 与 API 不同机时 127.0.0.1 不指向另一台机器。
 远程优先私网或 HTTPS；代理支持长时间 /stream 和 POST /admin/session/start、/sync。
 日志不要记录 api_key 查询串。ADB、Frida、签名服务及 /grab 不可公开到互联网。
+不要把账号 Cookie、`x-tt-token`、API Key、签名服务或设备会话提交到仓库、镜像或公开日志。
 
 漫剧在 apiServer 已配置、useApiServer=true 且 preferApiServer=true 时，
 直接使用分享页的 video_id、chapter_ids 和当前 vid，
@@ -167,3 +168,6 @@ HEVC 可下载不代表 QQ 客户端可播，必要时转 H.264/AAC。转码不�
 
 `config/config`、`runtime` 及备份含敏感配置，不提交 Git。更新前停止、私有备份，
 再 `git pull --ff-only` 并重启；不要强制覆盖本地修改。复测见 [VERIFY.md](VERIFY.md)。
+
+本项目只用于下载用户有权访问的内容。不要将 ADB、Frida、签名接口或媒体服务暴露到公网，
+也不要使用本项目绕过登录、验证码、地区限制或付费权限。

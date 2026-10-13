@@ -5,6 +5,9 @@
 
 [部署与登录](DEPLOY.md) | [测试与验收](VERIFY.md) | [维护与修复记录](HANDOVER.md)
 
+本项目用于解析用户有权访问的红果短剧/漫剧分享链接，不提供账号、验证码、广告或付费内容解锁。
+使用前请确认当地法律、平台条款和内容授权边界。
+
 ## 能力与边界
 
 - 官方短剧、漫剧短链及 App scheme 解析，默认自动下载分享集。
@@ -23,10 +26,10 @@ Bot 主机需要 Node.js 20.19+ 或 22.12+，以及 FFmpeg 套件中的 **ffprob
 插件 JS 无额外 npm 依赖。
 
 将完整仓库放入云崽 `plugins/hongguo-drama` 后重启。
-私有仓库先在部署机完成 `gh auth login`，再在云崽根目录执行：
+在云崽根目录执行：
 
 ~~~bash
-gh repo clone zaras123/hongguo-drama plugins/hongguo-drama
+git clone https://github.com/zaras123/hongguo-drama.git plugins/hongguo-drama
 ~~~
 
 工具不在 PATH 时，主人私聊设置：
@@ -37,7 +40,7 @@ gh repo clone zaras123/hongguo-drama plugins/hongguo-drama
 ~~~
 
 随后发送分享链接，或 `#红果搜索 剧名`。App 数据源的额外环境见 [DEPLOY.md](DEPLOY.md)。
-官网路线不需要 Python、安卓设备或登录。不要把 GitHub 令牌写入克隆地址或聊天消息。
+官网路线不需要 Python、安卓设备或登录。不要将 Token、Cookie 或会话文件提交到仓库或公开渠道。
 
 ## 命令
 
@@ -55,7 +58,7 @@ gh repo clone zaras123/hongguo-drama plugins/hongguo-drama
 | `#红果设置 设备 序列号` | 选择设备 |
 | `#红果安装App APK绝对路径` | 安装 Bot 主机上的 APK |
 | `#红果准备设备` | 为已有 root 的设备准备 Frida |
-| `#红果启动` / `#红果停止` / `#红果状态` | 管理插件拥有的本机 Python 服务 |
+| `#红果启动` / `#红果停止` / `#红果状态` | 管理插件托管的 Python 服务 |
 | `#红果登录` | 打开 App，之后在 App 内人工登录 |
 | `#红果登录完成` / `#红果同步登录` | 同步 App 会话到 API |
 | `#红果登录状态` | 凭证、设备参数、签名状态；不验证账号身份 |
