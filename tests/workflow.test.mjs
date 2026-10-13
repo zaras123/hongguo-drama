@@ -8,6 +8,8 @@ import { pathToFileURL, fileURLToPath } from "node:url"
 import { execFileSync } from "node:child_process"
 import net from "node:net"
 
+process.env.HONGGUO_DISABLE_AUTO_SETUP = "1"
+
 const root = fileURLToPath(new URL("../", import.meta.url))
 const sandbox = await fs.mkdtemp(path.join(os.tmpdir(), "hongguo-test-"))
 const pluginDir = path.join(sandbox, "plugins", "hongguo-drama")
@@ -249,7 +251,7 @@ test("built-in MP4 validation works when ffprobe is unavailable", async () => {
 test("management commands match their rules and reject non-owner/group usage", async () => {
   const inst = instance()
   for (const text of ["#红果安装", "#红果启动", "#红果停止", "#红果设备", "#红果准备设备",
-    "#红果设置 设备 emulator-5554", "#红果连接 127.0.0.1:5555", "#红果安装App /tmp/base.apk"]) {
+    "#红果一键配置", "#红果设置 设备 emulator-5554", "#红果连接 127.0.0.1:5555", "#红果安装App /tmp/base.apk"]) {
     assert.ok(inst.rule.some((rule) => rule.fnc === "manage" && new RegExp(rule.reg).test(text)), text)
   }
   assert.ok(inst.rule.some((rule) => rule.fnc === "login" && new RegExp(rule.reg).test("#红果登录完成")))
@@ -265,6 +267,8 @@ test("settings persist quotes and paths, mask secrets and refresh another instan
   assert.deepEqual(parseSetting("服务地址 内置"), { key: "apiServer", value: "builtin", secret: false })
   assert.deepEqual(parseSetting("服务地址 关闭"), { key: "apiServer", value: "", secret: false })
   assert.equal(parseSetting("自动下载 关").value, false)
+  assert.equal(parseSetting("API自动安装 关").value, false)
+  assert.equal(parseSetting("API自动启动 关").value, false)
   assert.throws(() => parseSetting("端口 22"))
   assert.throws(() => parseSetting("未知 anything"))
   assert.throws(() => parseSetting("服务地址 https://user:pass@example.com"))
@@ -298,7 +302,11 @@ test("managed lifecycle provisions credentials, rejects busy ports and stops own
   const settings = { managedPort: port, managedSignPort: port === 18781 ? 18782 : 18781, externalSignServer: "http://127.0.0.1:1" }
   try {
     assert.equal(managed.installed, true)
-    await managed.start(settings)
+    const skipped = await managed.ensure({ ...settings, apiAutoStart: false })
+    assert.equal(skipped.started, false)
+    assert.equal(skipped.reason, "auto_start_disabled")
+    const ensured = await managed.ensure(settings)
+    assert.equal(ensured.started, true)
     assert.equal(managed.phase, "运行中")
     const saved = Config.getSettings()
     assert.equal(saved.apiServer, 'http://127.0.0.1:' + port)

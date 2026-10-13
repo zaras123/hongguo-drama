@@ -137,15 +137,16 @@ export default class Config {
   }
 
   static resolveBuiltinApi(config) {
-    if (!this.isBuiltinApi(config.apiServer)) return config
+    if (!this.isBuiltinApi(config.apiServer)) return { ...config, apiBuiltin: false }
     const service = this.getBuiltinService()
     const readyFile = path.join(pluginDir, "runtime", "ready.json")
     if (!fs.existsSync(readyFile) || !service.apiKey) {
-      return { ...config, apiServer: "", apiReady: false }
+      return { ...config, apiBuiltin: true, apiServer: "", apiReady: false }
     }
     const port = Number(service.port) || Number(config.managedPort) || 18780
     return {
       ...config,
+      apiBuiltin: true,
       apiReady: true,
       apiServer: `http://127.0.0.1:${port}`,
       apiKey: config.apiKey || service.apiKey || "",

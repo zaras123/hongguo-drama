@@ -12,6 +12,7 @@ import { parseSetting, settingsHelp } from "./components/Settings.js"
 const sessions = new Map()
 const activeDownloads = new Set()
 let activeParses = 0
+let autoApiSetupStarted = false
 
 /**
  * 红果短剧（com.phoenix.read / com.dragon.read）解析下载插件
@@ -32,7 +33,7 @@ export class HongguoDrama extends plugin {
         { reg: "^#红果搜索\\s*(.+)$", fnc: "search" },
         { reg: "^#红果帮助$", fnc: "help" },
         { reg: "^#红果(登录|同步登录|登录完成|登录状态)$", fnc: "login", permission: "master" },
-        { reg: "^#红果(管理|状态|安装|启动|停止|设备|准备设备)$", fnc: "manage", permission: "master" },
+        { reg: "^#红果(管理|状态|安装|启动|停止|设备|准备设备|一键配置|配置API)$", fnc: "manage", permission: "master" },
         { reg: "^#红果(设置|连接|安装App)(?:\\s+.*)?$", fnc: "manage", permission: "master" },
         { reg: "^#红果重载$", fnc: "reloadCommand", permission: "master" },
         {
@@ -46,6 +47,7 @@ export class HongguoDrama extends plugin {
     this.reload()
     /** 会话缓存：记住最近解析的剧，方便直接 "#红果下载 1-3" */
     this.session = sessions
+    this.scheduleApiSetup()
   }
 
   /** 重新读取配置（改配置无需重启） */
@@ -62,6 +64,26 @@ export class HongguoDrama extends plugin {
     if (JSON.stringify(Config.getSettings()) !== this.loadedSettings) this.reload()
   }
 
+  scheduleApiSetup() {
+    if (autoApiSetupStarted || process.env.HONGGUO_DISABLE_AUTO_SETUP || process.env.NODE_TEST_CONTEXT) return
+    autoApiSetupStarted = true
+    const timer = setTimeout(async () => {
+      if (!this.config.apiBuiltin || this.config.apiAutoSetup === false) return
+      try {
+        const result = await runtime.ensure(this.config, (message) => logger.info(`[红果短剧] ${message}`))
+        if (result.started) {
+          this.reload()
+          logger.mark("[红果短剧] 内置 API 已自动启动")
+        } else if (result.reason === "device_required") {
+          logger.info("[红果短剧] 内置 API 运行环境已就绪，等待配置 Android 设备")
+        }
+      } catch (error) {
+        logger.warn(`[红果短剧] 内置 API 自动配置未完成: ${error.message}`)
+      }
+    }, 5000)
+    timer.unref?.()
+  }
+
   async manage(e) {
     if (!e.isMaster) { await e.reply("仅限主人操作"); return true }
     if (e.group_id || e.group || e.message_type === "group") {
@@ -74,12 +96,26 @@ export class HongguoDrama extends plugin {
       if (text === "管理") {
         await e.reply([
           "【红果管理】",
-          "首次：#红果安装 → #红果设备 → #红果设置 设备 <序列号>",
+          "一键：#红果一键配置",
+          "首次：#红果一键配置 → #红果设备 → #红果设置 设备 <序列号>",
           "设备：#红果连接 地址:端口；#红果安装App APK绝对路径；#红果准备设备",
           "服务：#红果启动 / #红果停止 / #红果状态",
           "登录：#红果登录 → App内完成验证 → #红果登录完成",
           "配置：#红果设置；日常：直接发送分享链接"
         ].join("\n"))
+      } else if (text === "一键配置" || text === "配置API") {
+        await e.reply("正在配置内置 API 运行环境...")
+        const result = await runtime.ensure(this.config, (message) => e.reply(message))
+        this.reload()
+        await e.reply(result.started
+          ? "内置 API 已安装并启动。需要账号内容时请发送 #红果登录，在 App 内完成登录。"
+          : result.reason === "device_required"
+            ? "运行环境已安装。请连接并选择 Android 设备后发送 #红果启动。"
+            : result.reason === "auto_start_disabled"
+              ? "运行环境已安装，自动启动已在配置中关闭。"
+              : result.reason === "auto_setup_disabled"
+                ? "自动安装已在配置中关闭，请先发送 #红果设置 API自动安装 开。"
+              : "内置 API 运行环境已就绪。")
       } else if (text === "安装") {
         await e.reply("正在安装插件专用服务环境，进度可通过 #红果状态 查看...")
         await runtime.install(this.config, (message) => e.reply(message))

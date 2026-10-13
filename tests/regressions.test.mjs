@@ -10,6 +10,8 @@ import { shareUrl, isPublicAddress, openResponse, followResponse } from "../comp
 import HongguoAPI from "../components/HongguoAPI.js"
 import { isManjuLink } from "../components/ManjuAPI.js"
 
+process.env.HONGGUO_DISABLE_AUTO_SETUP = "1"
+
 const sandbox = await fs.mkdtemp(path.join(os.tmpdir(), "hg-regressions-"))
 const plugin = path.join(sandbox, "plugins/hongguo-drama")
 await fs.cp(new URL("../", import.meta.url), plugin, { recursive: true })

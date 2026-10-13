@@ -42,6 +42,12 @@ git clone https://github.com/zaras123/hongguo-drama.git plugins/hongguo-drama
 
 这是稳定下载分享集的推荐路线，只有安装并启动内置服务后才会自动启用。
 
+插件启动后会自动下载固定版本运行文件和依赖；也可以手动发送：
+
+~~~text
+#红果一键配置
+~~~
+
 额外要求：
 
 - Python 3.10+
@@ -55,7 +61,7 @@ git clone https://github.com/zaras123/hongguo-drama.git plugins/hongguo-drama
 ~~~text
 #红果设置 Python /完整路径/python
 #红果设置 ADB /完整路径/adb
-#红果安装
+#红果一键配置
 #红果设备
 #红果设置 设备 实际序列号
 #红果安装App /绝对路径/base.apk

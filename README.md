@@ -11,6 +11,7 @@
 - 支持 Yunzai 和 TRSS-Yunzai。
 - 支持短剧、漫剧分享链接、官方短链和 App scheme。
 - 内置托管 API 服务，默认优先使用，失败自动回退官网。
+- 启动后自动安装内置 API 运行环境；设备就绪时自动启动。
 - 默认自动下载分享链接指向的集数。
 - 支持指定集数、重试、官网回退、H.264/AAC 转码和 base64 传输。
 - 支持主人私聊管理上游服务、Android 设备和 App 登录同步。
@@ -53,6 +54,7 @@ git clone https://github.com/zaras123/hongguo-drama.git plugins/hongguo-drama
 | `#红果下载 2` | 下载上次解析的第 2 集 |
 | `#红果搜索 剧名` | 搜索短剧或漫剧 |
 | `#红果帮助` | 查看命令 |
+| `#红果一键配置` | 安装并尝试启动内置 API |
 
 选集支持 `1`、`1-3,5`、`第2集`、`1，2、4` 和 `全部`。
 
@@ -76,8 +78,8 @@ git clone https://github.com/zaras123/hongguo-drama.git plugins/hongguo-drama
 
 ### 内置 API 路线
 
-默认 `apiServer: builtin`。首次先发送 `#红果安装`，再按 [部署说明](DEPLOY.md)
-准备设备和启动服务；服务启动后插件会自动读取本地地址和密钥。
+默认 `apiServer: builtin`。插件会在后台自动安装运行环境，设备就绪后自动启动并读取本地地址和密钥。
+未自动完成时可发送 `#红果一键配置`，设备步骤见 [部署说明](DEPLOY.md)。
 
 ~~~text
 分享链接
@@ -109,6 +111,7 @@ git clone https://github.com/zaras123/hongguo-drama.git plugins/hongguo-drama
 | apiServer | builtin | 内置 API；可填远程地址或关闭 |
 | apiKey | 空 | 上游下载 Key |
 | preferApiServer | true | 是否优先使用 API 解密流 |
+| apiAutoSetup / apiAutoStart | true / true | 自动安装运行环境 / 设备就绪后自动启动 |
 
 常用命令：
 
