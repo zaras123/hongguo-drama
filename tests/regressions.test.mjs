@@ -183,13 +183,25 @@ test("native group files, wrapper group files and friend files have separate con
   await assert.rejects(inst.sendVideo({}, file, "title"), /不支持文件/)
 })
 
-test("web fallback selects accessible episode even when API remains configured", () => {
+test("configured API keeps the shared manju episode for upstream vid download", () => {
   const inst = new HongguoDrama()
   inst.api = api
   const series = { source: "manju", backend: "web", startIndex: 5, accessible: 3,
     episodes: Array.from({ length: 8 }, (_, index) => ({ index: index + 1 })) }
-  assert.deepEqual(inst.resolveAutoDownloadIndexes(series).indexes, [1])
+  assert.deepEqual(inst.resolveAutoDownloadIndexes(series).indexes, [5])
   assert.deepEqual(inst.resolveAutoDownloadIndexes({ ...series, backend: "server" }).indexes, [5])
+  assert.equal(inst.episodePreference(0), "server")
+  assert.equal(inst.episodePreference(1), "site")
+  for (const config of [{ apiServer: "" }, { apiServer: base, useApiServer: false },
+    { apiServer: base, preferApiServer: false }]) {
+    const noApi = new HongguoDrama()
+    noApi.config = { ...noApi.config, ...config }
+    noApi.api = new HongguoAPI(noApi.config)
+    assert.deepEqual(noApi.resolveAutoDownloadIndexes(series).indexes, [1])
+    assert.equal(noApi.episodePreference(0), "site")
+    noApi.config.autoDownloadRange = "5"
+    assert.deepEqual(noApi.resolveAutoDownloadIndexes(series).indexes, [5])
+  }
 })
 
 test("parse concurrency gate is shared and released after failure", async () => {

@@ -16,9 +16,8 @@ let activeParses = 0
 /**
  * 红果短剧（com.phoenix.read / com.dragon.read）解析下载插件
  *
- * 数据源为红果官网播放页（服务端渲染，直出明文 MP4 直链），
- * 不依赖 App 私有接口的 x-gorgon/x-argus 签名头。
- * 红果漫剧（kylin/hainanyuyue 分享链接）同样落到官网播放页，分集列表完全一致。
+ * 配置上游 API 后优先按 vid 获取可播 MP4，失败回退官网同集。
+ * 官网路线无需 App 签名；漫剧元数据回退官网不改变下载源优先级。
  */
 export class HongguoDrama extends plugin {
   constructor() {
@@ -387,6 +386,7 @@ export class HongguoDrama extends plugin {
   resolveAutoDownloadIndexes(series) {
     const total = series.episodes.length
     const raw = String(this.config.autoDownloadRange ?? "shared").trim().toLowerCase()
+    const canUseApiServer = this.api.serverEnabled() && this.config.preferApiServer !== false
 
     if (!raw || ["shared", "share", "分享集", "分享"].includes(raw)) {
       let index = Math.max(1, Math.min(Number(series.startIndex) || 1, total))
@@ -395,7 +395,7 @@ export class HongguoDrama extends plugin {
         series.source === "manju" &&
         accessible > 0 &&
         index > accessible &&
-        series.backend !== "server"
+        !canUseApiServer
       ) {
         return {
           indexes: [1],
@@ -407,6 +407,12 @@ export class HongguoDrama extends plugin {
 
     if (["first", "首集", "第一集"].includes(raw)) return { indexes: [1] }
     return { indexes: this.parseRange(raw, total) }
+  }
+
+  /** 首次优先使用上游按 vid 解密；失败后的整集重试固定回官网。 */
+  episodePreference(attempt) {
+    if (attempt > 0) return "site"
+    return this.api.serverEnabled() && this.config.preferApiServer !== false ? "server" : "site"
   }
 
   /** 下载一组已经选好的集数 */
@@ -450,9 +456,11 @@ export class HongguoDrama extends plugin {
       let file = null
       for (let attempt = 0; attempt <= retries; attempt++) {
         try {
-          // 第一次尝试走自建服务（解密后的可播流），失败后回退官网明文直链
+          // 自建服务按 vid 解密后提供可播 MP4；失败后回退官网明文直链。
           const url = await this.api.getEpisodeUrl(series.seriesId, episode.vid, {
-            prefer: attempt === 0 && !(series.source === "manju" && series.backend !== "server") ? undefined : "site"
+            prefer: this.episodePreference(attempt),
+            index,
+            quality: this.config.streamQuality
           })
           const fromServer = this.api.isServerUrl(url)
           file = await this.api.download(url, name, {

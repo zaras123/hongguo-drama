@@ -18,6 +18,7 @@ globalThis.logger = { info() {}, warn() {}, error() {}, mark() {} }
 globalThis.segment = { image: (file) => ({ type: "image", file }), video: (file) => ({ type: "video", file }) }
 const { HongguoDrama } = await import(pathToFileURL(path.join(pluginDir, "index.js")))
 const { default: HongguoAPI } = await import(pathToFileURL(path.join(pluginDir, "components", "HongguoAPI.js")))
+const { default: ManjuAPI } = await import(pathToFileURL(path.join(pluginDir, "components", "ManjuAPI.js")))
 const { default: SessionAPI } = await import(pathToFileURL(path.join(pluginDir, "components", "SessionAPI.js")))
 const { prepareVideo } = await import(pathToFileURL(path.join(pluginDir, "components", "Video.js")))
 const { default: Config } = await import(pathToFileURL(path.join(pluginDir, "components", "Config.js")))
@@ -26,7 +27,7 @@ const { parseSetting } = await import(pathToFileURL(path.join(pluginDir, "compon
 const sid = "7664958856774044697"
 const vid = "7664961183094410265"
 const token = "management-secret"
-const state = { streamHits: 0, quality: "", login: false, key: "", broken: false }
+const state = { streamHits: 0, streamVid: "", quality: "", login: false, key: "", broken: false, metadataBroken: false }
 const mp4 = await fs.readFile(new URL("fixtures/video.mp4", import.meta.url))
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, "http://localhost")
@@ -38,11 +39,13 @@ const server = http.createServer((req, res) => {
   }
   state.key = req.headers["x-api-key"] || url.searchParams.get("api_key")
   if (state.key !== "download-key") return json(401, {})
-  if (url.pathname === "/episodes") return json(200, {
-    meta: { title: "Fixture", series_id: sid }, episodes: [{ vid, index: 1 }]
-  })
+  if (url.pathname === "/episodes") {
+    if (state.metadataBroken) return json(503, { error: "metadata unavailable" })
+    return json(200, { meta: { title: "Fixture", series_id: sid }, episodes: [{ vid, index: 1 }] })
+  }
   if (url.pathname === "/stream") {
     state.streamHits++
+    state.streamVid = url.searchParams.get("vid")
     state.quality = url.searchParams.get("quality")
     if (state.broken) return json(200, { error: "not a video" })
     res.writeHead(200, { "content-type": "video/mp4", "content-length": mp4.length })
@@ -104,6 +107,58 @@ test("share URL to HTTP episodes, download, send and cleanup", async () => {
   const nextInstance = instance()
   assert.equal(nextInstance.getSeries(e).seriesId, sid)
   assert.equal(nextInstance.getSeries({ ...e, self_id: 99 }), null)
+})
+
+test("failed manju metadata still downloads and sends shared episode five through upstream vid", async () => {
+  const inst = instance()
+  const before = state.streamHits
+  const messages = []
+  const vids = ["7664960983332310041", "7664960983332310042", "7664960983332310043", "7664960983332310044", vid]
+  const share = "window._ROUTER_DATA=" + JSON.stringify({ loaderData: { "video-animation-share_page": {
+    pageData: { chapter_ids: vids, used_chapter_id: vid, chapter_order: 5, video_id: sid,
+      series_data: { title: "Fixture", serial_count: 5 } }
+  } } })
+  inst.manju = new ManjuAPI(inst.config)
+  inst.manju.hongguo.request = async () => ({ url: "https://hainanyuyue.com/share/video-animation-share", text: async () => share })
+  inst.manju.hongguo.getText = async () => JSON.stringify({ series_name: "Fixture", vid_list: vids, accessible_episode_cnt: 3 })
+  inst.api.siteEpisodeUrl = async () => assert.fail("upstream success must not request the site video")
+  const e = { user_id: 7, msg: "https://kylin.hainanyuyue.com/s/fixture", reply: async (message) => {
+    if (message?.type === "video") assert.deepEqual(await fs.readFile(message.file), mp4)
+    messages.push(message)
+    return { message_id: 7 }
+  } }
+  state.metadataBroken = true
+  try { await inst.autoParse(e) } finally { state.metadataBroken = false }
+  assert.equal(inst.getSeries(e).backend, "web")
+  assert.equal(inst.getSeries(e).startIndex, 5)
+  assert.equal(inst.getSeries(e).accessible, 3)
+  assert.equal(state.streamHits, before + 1)
+  assert.equal(state.streamVid, vid)
+  assert.equal(state.quality, "1080p")
+  assert.equal(messages.filter((message) => message?.type === "video").length, 1)
+  assert.deepEqual(await fs.readdir(settings.tempDir), [])
+})
+
+test("failed upstream falls back to the same manju episode with zero retries and never substitutes episode one", async () => {
+  const inst = instance()
+  const before = state.streamHits
+  const messages = []
+  const siteCalls = []
+  inst.api.siteEpisodeUrl = async (seriesId, videoId) => {
+    siteCalls.push({ seriesId, videoId })
+    throw new Error("site episode unavailable")
+  }
+  state.broken = true
+  try {
+    await inst.downloadSeries({ user_id: 8, reply: async (message) => { messages.push(message); return true } },
+      { title: "Fixture", source: "manju", backend: "web", seriesId: sid, accessible: 3,
+        episodes: Array.from({ length: 5 }, () => ({ vid })) }, [5])
+  } finally { state.broken = false }
+  assert.equal(state.streamHits, before + 1)
+  assert.deepEqual(siteCalls, [{ seriesId: sid, videoId: vid }])
+  assert.ok(messages.some((message) => typeof message === "string" && /第 5 集下载失败/.test(message) && /site episode unavailable/.test(message)))
+  assert.ok(!messages.some((message) => message?.type === "video"))
+  assert.deepEqual(await fs.readdir(settings.tempDir), [])
 })
 
 test("false video send result falls back to group file", async () => {

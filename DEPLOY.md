@@ -113,6 +113,10 @@ Python 为 `.venv/Scripts/python.exe`。路径、设备、端口、占位密钥�
 远程优先私网或 HTTPS；代理支持长时间 /stream 和 POST /admin/session/start、/sync。
 日志不要记录 api_key 查询串。ADB、Frida、签名服务及 /grab 不可公开到互联网。
 
+漫剧即使官网元数据解析成功，也会在下载时优先把当前集 vid 交给上游
+/stream?vid=...&quality=... 解密；因此不要求上游 /episodes 必须先匹配到整部漫剧。
+上游流失败后才回退官网同集，官网仍未开放时会明确报告失败。
+
 ## 视频发送
 
 默认 file 传输使用原始绝对路径，支持中文和空格。原生 icqq 群文件调用 fs.upload 的目录/名称参数，
