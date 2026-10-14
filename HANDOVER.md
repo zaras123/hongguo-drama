@@ -28,6 +28,7 @@
 - 私密 API 是独立信任边界，可以位于私网。
 - 公共分享链接只允许官方域名。
 - Cookie、API Key、设备会话和服务密钥不得提交到 Git。
+- Guoba 配置通过 `guoba.support.js` 读写 `settings.json`，不要绕过 `Config.updateSettings()`。
 
 ## 数据目录
 

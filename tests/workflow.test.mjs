@@ -25,6 +25,7 @@ const { default: SessionAPI } = await import(pathToFileURL(path.join(pluginDir, 
 const { prepareVideo, validateMp4Structure, validateVideo } = await import(
   pathToFileURL(path.join(pluginDir, "components", "Video.js"))
 )
+const { supportGuoba } = await import(pathToFileURL(path.join(pluginDir, "guoba.support.js")))
 const { default: Config } = await import(pathToFileURL(path.join(pluginDir, "components", "Config.js")))
 const { ManagedRuntime } = await import(pathToFileURL(path.join(pluginDir, "components", "ManagedRuntime.js")))
 const { parseSetting } = await import(pathToFileURL(path.join(pluginDir, "components", "Settings.js")))
@@ -284,6 +285,38 @@ test("settings persist quotes and paths, mask secrets and refresh another instan
   assert.ok(!messages.join().includes("never-echo-this-secret"))
   other.refreshSettings()
   assert.equal(other.config.sessionToken, "never-echo-this-secret")
+})
+
+test("Guoba support exposes schemas and persists config", async () => {
+  const guoba = supportGuoba()
+  assert.equal(guoba.pluginInfo.name, "hongguo-drama")
+  assert.ok(Array.isArray(guoba.configInfo.schemas))
+  const initial = guoba.configInfo.getConfigData()
+  assert.equal(initial.basic.autoDownload, true)
+  assert.equal(initial.api.apiServer, "builtin")
+  const settingsFile = path.join(pluginDir, "config", "config", "settings.json")
+  const before = await fs.readFile(settingsFile, "utf8").catch(() => null)
+  try {
+    const result = guoba.configInfo.setConfigData({
+      api: {
+        apiServer: "内置",
+        apiRequired: true,
+        offlineApi: true,
+        devicePoolSize: 12
+      }
+    }, {
+      Result: { ok: (data, msg) => ({ success: true, data, msg }) }
+    })
+    assert.equal(result.success, true)
+    const saved = Config.getSettings()
+    assert.equal(saved.apiServer, "builtin")
+    assert.equal(saved.apiRequired, true)
+    assert.equal(saved.offlineApi, true)
+    assert.equal(saved.devicePoolSize, 12)
+  } finally {
+    if (before === null) await fs.rm(settingsFile, { force: true })
+    else await fs.writeFile(settingsFile, before)
+  }
 })
 
 test("managed lifecycle provisions credentials, rejects busy ports and stops owned process", { skip: !process.env.HG_TEST_PYTHON }, async () => {

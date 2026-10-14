@@ -11,7 +11,7 @@ python -B -m unittest discover -s server -p "test_*.py" -v
 
 当前结果：
 
-- Node：38 项，37 通过、1 跳过
+- Node：39 项，38 通过、1 跳过
 - Python：16 通过
 - 跳过项：当前环境的 `ffmpeg` 没有 `libx264`，无法执行真实 H.264 转码
 - 有 `libx264` 的环境应运行完整转码测试

@@ -113,13 +113,16 @@ export default class Config {
 
   /** 读取配置：默认配置 + 用户配置合并，运行期缺失时自动复制默认配置 */
   static getConfig(name = DEFAULT_NAME) {
-    this.copyDefault(name)
+    const config = { ...this.getRawConfig(name), ...this.getEnvConfig() }
+    return name === DEFAULT_NAME ? this.resolveBuiltinApi(config) : config
+  }
 
+  static getRawConfig(name = DEFAULT_NAME) {
+    this.copyDefault(name)
     const defaults = this.readFile(this.defaultFile(name))
     const user = this.readFile(this.runtimeFile(name))
     const settings = name === DEFAULT_NAME ? this.getSettings() : {}
-    const config = { ...defaults, ...user, ...settings, ...this.getEnvConfig() }
-    return name === DEFAULT_NAME ? this.resolveBuiltinApi(config) : config
+    return { ...defaults, ...user, ...settings }
   }
 
   static isBuiltinApi(value) {

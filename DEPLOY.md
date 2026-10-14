@@ -14,6 +14,8 @@ cd /path/to/Yunzai
 git clone https://github.com/zaras123/hongguo-drama.git plugins/hongguo-drama
 ~~~
 
+已安装锅巴时，可在锅巴的插件配置页修改基础、API、Offline API、发送和托管设备设置。
+
 ## 路线 A：官网解析下载
 
 这是默认开箱可用路线。插件未检测到可用的内置 API 时，会自动使用官网，
