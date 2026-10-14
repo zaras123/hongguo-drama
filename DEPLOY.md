@@ -1,66 +1,109 @@
-# 部署说明
+# 部署与配置
 
 ## 基础环境
 
 - Yunzai 或 TRSS-Yunzai
 - Node.js 20.19+ 或 22.12+
-- `ffprobe` 可选；缺失时使用内置 MP4 检查
+- `ffprobe` 可选
 - 转码需要带 `libx264` 的 `ffmpeg`
 
-把完整仓库放到 `plugins/hongguo-drama` 后重启 Bot。
+安装：
 
-~~~bash
+```bash
 cd /path/to/Yunzai
 git clone https://github.com/zaras123/hongguo-drama.git plugins/hongguo-drama
-~~~
+```
 
-已安装锅巴时，可在锅巴的插件配置页修改基础、API、Offline API、发送和托管设备设置。
+重启 Bot 后可直接发送分享链接。
 
-## 路线 A：官网解析下载
+---
 
-这是默认开箱可用路线。插件未检测到可用的内置 API 时，会自动使用官网，
-不需要配置 Python、ADB 或 Android 设备。
+## 默认优先：离线游客 API
 
-~~~text
-#红果设置 服务地址 关闭
-~~~
+适用：
 
-如果需要显式禁用所有 API 尝试，可以使用上一条命令。然后：
+- Linux 服务器
+- 不想在每台机器安装模拟器或 App
+- 公开、游客可访问的内容
 
-1. 不需要 Python 和 Android 设备。
-2. 把用户有权访问的分享链接发给 Bot。
-3. 插件解析剧集，默认下载分享链接指向的集数。
+外部先启动 `FqTrace serve`：
 
-要重新启用内置 API：
+```bash
+java --add-opens java.base/java.lang=ALL-UNNAMED \
+  -cp unidbg-sign-1.0-jar-with-dependencies.jar \
+  com.hongguo.sign.FqTrace serve 9099
+```
 
-~~~text
-#红果设置 服务地址 内置
-#红果启动
-~~~
+插件配置：
 
-官网开放范围会变化。分享集始终优先，插件不会因为页面显示开放数较少就自动改成第 1 集。
-
-## 路线 B：插件托管 App 服务
-
-这是稳定下载分享集的推荐路线，只有安装并启动内置服务后才会自动启用。
-
-插件启动后会自动下载固定版本运行文件和依赖；也可以手动发送：
-
-~~~text
+```text
+#红果设置 离线API 开
+#红果设置 签名服务 http://unidbg主机:9099
+#红果设置 设备池 20
+#红果设置 API必需 开
 #红果一键配置
-~~~
+```
 
-额外要求：
+环境变量：
 
-- Python 3.10+
-- ADB
-- 已 root 的 Android 设备或模拟器
-- 红果 App
-- Frida 16.x
+```text
+HONGGUO_OFFLINE_API=1
+HONGGUO_SIGN_SERVER=http://unidbg主机:9099
+HONGGUO_DEVICE_POOL_SIZE=20
+HONGGUO_API_REQUIRED=1
+```
 
-在主人私聊依次执行：
+说明：
 
-~~~text
+- 游客接口不需要红果账号 Token。
+- 需要账号权限的内容仍不保证可下载。
+- API 必需模式下不会回退官网。
+
+---
+
+## 中心 API
+
+适用：
+
+- 多台 Linux Bot 共用一个 API
+- API 主机维护设备和 Token
+- 客户端不安装 Python、ADB、Frida
+
+客户端配置：
+
+```text
+#红果配置API https://api.example.com 下载Key 登录Key
+```
+
+环境变量：
+
+```text
+HONGGUO_API_URL=https://api.example.com
+HONGGUO_API_KEY=下载Key
+HONGGUO_SESSION_TOKEN=登录Key
+HONGGUO_API_REQUIRED=1
+```
+
+中心 API 主机负责：
+
+```text
+Android 设备 / 模拟器
+红果 App 登录
+签名服务
+/stream 解密
+Token 维护
+```
+
+---
+
+## 本地设备 API
+
+适用：
+
+- Bot 主机或局域网内有 Android 设备
+- 需要账号内容或完整登录态
+
+```text
 #红果设置 Python /完整路径/python
 #红果设置 ADB /完整路径/adb
 #红果一键配置
@@ -70,119 +113,79 @@ git clone https://github.com/zaras123/hongguo-drama.git plugins/hongguo-drama
 #红果准备设备
 #红果启动
 #红果登录
-~~~
+```
 
-在 App 内完成人工登录后：
+在 App 内人工登录后：
 
-~~~text
+```text
 #红果登录完成
 #红果登录状态
-~~~
+```
 
-启动后的下载流程：
+---
 
-~~~text
-漫剧分享链接
-  -> 分享页读取 video_id、chapter_ids、分享 vid
-  -> /stream?vid=<分享 vid>&quality=best
-  -> 上游签名、取密文、离线解密
-  -> 插件下载明文 MP4
-  -> 发送文件或视频
-~~~
+## 官网兜底
 
-`/episodes` 失败不影响分享集下载。`/stream` 失败时回退官网同 vid。
-服务启动后地址和密钥会自动写入配置，不需要手工填写。
+不用 API：
 
-## 路线 C：已有 API 服务
+```text
+#红果设置 服务地址 关闭
+```
 
-已有 `zhangbaio/hongguo` 服务时，把服务地址改为远程地址，不再启动插件的托管服务。
+特点：
 
-Linux Bot 推荐使用一个中心 API 主机，中心主机负责 Android 设备、签名和登录；
-各 Linux 用户端只保存 API 地址和 Key。
+- 不需要 Python、ADB、Frida
+- 只下载官网当前开放内容
+- 分享集会优先尝试，不因页面开放数自动改集
 
-主人私聊配置：
-
-~~~text
-#红果配置API https://API地址 普通API密钥 独立登录管理密钥
-~~~
-
-也可以使用环境变量部署：
-
-~~~text
-HONGGUO_API_URL=https://API地址
-HONGGUO_API_KEY=普通API密钥
-HONGGUO_SESSION_TOKEN=独立登录管理密钥
-HONGGUO_API_REQUIRED=1
-~~~
-
-`#红果配置API` 和 `HONGGUO_API_REQUIRED=1` 都会启用 API 必需模式；
-API 不可用时插件会明确失败，不切换官网。
-
-## 路线 D：unidbg 游客离线 API
-
-外部运行 `FqTrace serve` 后，中心 API 可以不启动 Frida 和红果 App：
-
-~~~text
-签名：http://unidbg主机:9099
-DEVICE_POOL_SIZE=20
-游客模式：不发送账号 Token
-~~~
-
-插件或中心 API 环境：
-
-~~~text
-HONGGUO_SIGN_SERVER=http://unidbg主机:9099
-HONGGUO_OFFLINE_API=1
-HONGGUO_DEVICE_POOL_SIZE=20
-~~~
-
-也可以发送：
-
-~~~text
-#红果设置 离线API 开
-#红果设置 签名服务 http://unidbg主机:9099
-#红果设置 设备池 20
-#红果一键配置
-~~~
-
-该路线对游客开放的搜索、剧集和视频模型有效。需要账号权限或登录 Token 的内容仍不保证可下载。
-
-要求：
-
-- API 服务固定使用上游提交 `5f8a58d10f48954bc9b6a58c9cd6418bf499feb9`。
-- 下载 Key 不是 `ADMIN_TOKEN`。
-- 签名端口不是 API 地址。
-- 远程连接优先使用私网、SSH 隧道或 HTTPS。
+---
 
 ## 视频发送
 
-默认使用原始文件路径：
+默认：
 
-~~~text
+```text
 #红果设置 发送方式 视频
 #红果设置 传输 file
-~~~
+```
 
-远程协议端没有共享磁盘时：
+远程协议端没有共享路径：
 
-~~~text
+```text
 #红果设置 传输 base64
 #红果设置 转码 开
-~~~
+```
 
-`base64` 默认限制原文件 30 MB。HEVC 可以下载不代表 QQ 客户端能播放，需要时可转 H.264/AAC。
+---
+
+## 锅巴配置
+
+已安装锅巴时，可在插件配置页修改：
+
+- 基础功能
+- API
+- 离线 API
+- 发送与转码
+- 托管与设备
+
+保存后写入：
+
+```text
+config/config/settings.json
+```
+
+---
 
 ## 排错
 
-| 现象 | 检查 |
+| 现象 | 处理 |
 | --- | --- |
-| 解析失败 | 确认是官方分享域名，链接未失效 |
-| 官网直链 404 | 插件会重新取链并重试，仍失败可配置 API 路线 |
-| `/episodes` 失败 | API 优先模式不依赖它，直接按分享 vid 下载 |
-| `/stream` 失败 | 检查签名服务、App 登录、设备在线和 API Key |
-| 视频检查失败 | 检查 `ffprobe` 是否可执行 |
-| 已下载但发送失败 | 检查协议端文件能力，尝试 `base64` |
+| 离线 API 不启动 | 检查 `SIGN_SERVER`、`offlineApi`、`devicePoolSize` |
+| 中心 API 401 | 检查 `apiKey` |
+| 登录管理 401 | 检查 `sessionToken` |
+| API 不可用 | 开启官网兜底或修复签名服务 |
+| `/stream` 失败 | 检查签名服务、Token、设备池 |
 | QQ 无法播放 | 开启 H.264/AAC 转码 |
-| 配置不生效 | `settings.json` 优先于 YAML，发 `#红果重载` |
+| 配置不生效 | 发 `#红果重载` |
 
-不要把 `config/config`、`runtime`、设备会话或服务密钥提交到 Git。
+敏感配置不要提交到 Git。

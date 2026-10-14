@@ -6,16 +6,16 @@
 2. 插件识别漫剧或普通短剧。
 3. 漫剧解析分享页：
    `video_id`、`chapter_ids`、`used_chapter_id`、`chapter_order`。
-4. 默认 `apiServer: builtin`；内置服务未就绪时自动关闭 API，直接使用官网。
-   插件后台自动安装运行环境，设备就绪时自动启动并读取本地地址和密钥。
+4. 默认 `offlineApi: true + apiServer: builtin`；配置 `externalSignServer` 时优先启动游客离线 API。
+   未配置外部签名服务时，内置服务未就绪则自动使用官网。
    Linux 用户也可通过 `#红果配置API` 或环境变量连接中心 API，并开启 API 必需模式。
-   配置外部 unidbg 签名服务时，离线 API 优先使用游客设备池，账号 Token 仍由中心服务维护。
+   账号 Token 仍由中心服务维护。
 5. API 优先时，先尝试 `/episodes` 补充元数据。
 6. `/episodes` 失败或不匹配时，直接使用分享页 `chapter_ids`。
 7. 下载分享 vid：
    `/stream?vid=...&quality=...`。
 8. 上游完成签名、取密文、`spade_a` 解包和离线解密。
-9. 上游失败或服务未启动时，使用同一个 vid 回退官网。
+9. 上游失败或服务未启动时，使用同一个 vid 回退官网；`apiRequired=true` 时禁止回退。
 10. 文件写入 `.part`，校验后原子改名。
 11. 发送视频或文件，按配置清理。
 
