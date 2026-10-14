@@ -3,13 +3,14 @@ const names = {
   "设备": "adbDevice", "端口": "managedPort", "签名端口": "managedSignPort",
   "签名服务": "externalSignServer", "服务地址": "apiServer", "下载密钥": "apiKey",
   "登录密钥": "sessionToken", "清晰度": "streamQuality", "自动下载": "autoDownload",
+  "离线API": "offlineApi", "设备池": "devicePoolSize",
   "自动解析": "enableAutoParse", "选集": "autoDownloadRange", "每次集数": "maxEpisodesPerRequest",
   "大小上限": "maxFileSizeMB", "发送方式": "sendType", "传输": "videoTransport",
   "转码": "transcodeVideo", "FFmpeg": "ffmpegPath", "ffmpeg": "ffmpegPath",
   "FFprobe": "ffprobePath", "ffprobe": "ffprobePath",
   "API自动安装": "apiAutoSetup", "API自动启动": "apiAutoStart", "API必需": "apiRequired"
 }
-const booleans = new Set(["autoDownload", "enableAutoParse", "transcodeVideo", "apiAutoSetup", "apiAutoStart", "apiRequired"])
+const booleans = new Set(["autoDownload", "enableAutoParse", "transcodeVideo", "apiAutoSetup", "apiAutoStart", "apiRequired", "offlineApi"])
 const enums = {
   streamQuality: ["best", "1080p", "720p", "540p", "480p", "360p"],
   sendType: ["video", "file"], videoTransport: ["file", "base64"]
@@ -25,8 +26,8 @@ export function parseSetting(text) {
     if (["开", "开启", "true"].includes(value)) value = true
     else if (["关", "关闭", "false"].includes(value)) value = false
     else throw new Error("请填写 开 或 关")
-  } else if (["managedPort", "managedSignPort", "maxEpisodesPerRequest", "maxFileSizeMB"].includes(key)) {
-    const max = key.startsWith("managed") ? 65535 : key === "maxEpisodesPerRequest" ? 100 : 4096
+  } else if (["managedPort", "managedSignPort", "maxEpisodesPerRequest", "maxFileSizeMB", "devicePoolSize"].includes(key)) {
+    const max = key.startsWith("managed") ? 65535 : key === "maxEpisodesPerRequest" ? 100 : key === "devicePoolSize" ? 1000 : 4096
     const min = key === "maxFileSizeMB" ? 0 : key.startsWith("managed") ? 1024 : 1
     if (!/^\d+$/.test(value) || Number(value) < min || Number(value) > max) throw new Error("设置数值超出允许范围")
     value = Number(value)
@@ -53,6 +54,7 @@ export function parseSetting(text) {
 export const settingsHelp = [
   "#红果设置 <项目> <值>",
   "设备 / Python / ADB / 端口 / 签名端口 / 签名服务",
+  "离线API 开|关；设备池 0-1000",
   "自动解析 开|关；自动下载 开|关；选集 shared|first|1-3",
   "清晰度 best|1080p|720p；每次集数 1-100；大小上限 MB",
   "发送方式 视频|文件；传输 file|base64；转码 开|关",

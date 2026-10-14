@@ -271,6 +271,8 @@ test("settings persist quotes and paths, mask secrets and refresh another instan
   assert.equal(parseSetting("API自动安装 关").value, false)
   assert.equal(parseSetting("API自动启动 关").value, false)
   assert.equal(parseSetting("API必需 开").value, true)
+  assert.equal(parseSetting("离线API 开").value, true)
+  assert.equal(parseSetting("设备池 20").value, 20)
   assert.throws(() => parseSetting("端口 22"))
   assert.throws(() => parseSetting("未知 anything"))
   assert.throws(() => parseSetting("服务地址 https://user:pass@example.com"))
@@ -336,4 +338,42 @@ test("managed lifecycle provisions credentials, rejects busy ports and stops own
     assert.equal(managed.child, null)
     await managed.freePort(port)
   } finally { await managed.stop() }
+})
+
+test("offline guest API starts directly without an Android device", { skip: !process.env.HG_TEST_PYTHON }, async () => {
+  const root = path.join(sandbox, "guest-fixture")
+  const upstream = path.join(root, "upstream")
+  const python = path.join(root, "venv", process.platform === "win32" ? "Scripts/python.exe" : "bin/python")
+  await fs.mkdir(upstream, { recursive: true })
+  await fs.mkdir(path.dirname(python), { recursive: true })
+  await fs.writeFile(python, "fixture")
+  await fs.writeFile(path.join(root, "ready.json"), JSON.stringify({ files: ["server.py", "sign_server.py"] }))
+  await fs.writeFile(path.join(upstream, "sign_server.py"), "# fixture")
+  await fs.writeFile(path.join(upstream, "config.json"), "{}")
+  await fs.copyFile(new URL("fixtures/server.py", import.meta.url), path.join(upstream, "server.py"))
+  const managed = new ManagedRuntime(root)
+  Object.defineProperty(managed, "python", { value: process.env.HG_TEST_PYTHON })
+  const port = await new Promise((resolve) => {
+    const probe = net.createServer()
+    probe.listen(0, "127.0.0.1", () => { const port = probe.address().port; probe.close(() => resolve(port)) })
+  })
+  try {
+    const result = await managed.ensure({
+      managedPort: port,
+      managedSignPort: port === 18781 ? 18782 : 18781,
+      externalSignServer: "http://127.0.0.1:1",
+      offlineApi: true,
+      devicePoolSize: 5,
+      apiAutoStart: true
+    })
+    assert.equal(result.started, true)
+    assert.equal(managed.phase, "运行中")
+    const settings = JSON.parse(await fs.readFile(path.join(root, "service.json"), "utf8"))
+    assert.equal(settings.guestMode, true)
+    assert.equal(settings.localSigner, false)
+    assert.equal(settings.devicePoolSize, 5)
+    await managed.stop()
+  } finally {
+    await managed.stop()
+  }
 })

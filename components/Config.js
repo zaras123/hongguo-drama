@@ -159,6 +159,11 @@ export default class Config {
     if (process.env.HONGGUO_API_URL) env.apiServer = String(process.env.HONGGUO_API_URL).trim()
     if (process.env.HONGGUO_API_KEY) env.apiKey = String(process.env.HONGGUO_API_KEY).trim()
     if (process.env.HONGGUO_SESSION_TOKEN) env.sessionToken = String(process.env.HONGGUO_SESSION_TOKEN).trim()
+    if (process.env.HONGGUO_SIGN_SERVER) env.externalSignServer = String(process.env.HONGGUO_SIGN_SERVER).trim()
+    if (process.env.HONGGUO_OFFLINE_API) {
+      env.offlineApi = ["1", "true", "yes", "on"].includes(String(process.env.HONGGUO_OFFLINE_API).toLowerCase())
+    }
+    if (process.env.HONGGUO_DEVICE_POOL_SIZE) env.devicePoolSize = Number(process.env.HONGGUO_DEVICE_POOL_SIZE)
     if (process.env.HONGGUO_API_REQUIRED) {
       env.apiRequired = ["1", "true", "yes", "on"].includes(String(process.env.HONGGUO_API_REQUIRED).toLowerCase())
     }

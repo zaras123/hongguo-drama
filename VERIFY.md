@@ -11,7 +11,7 @@ python -B -m unittest discover -s server -p "test_*.py" -v
 
 当前结果：
 
-- Node：37 项，36 通过、1 跳过
+- Node：38 项，37 通过、1 跳过
 - Python：16 通过
 - 跳过项：当前环境的 `ffmpeg` 没有 `libx264`，无法执行真实 H.264 转码
 - 有 `libx264` 的环境应运行完整转码测试
@@ -46,6 +46,7 @@ python -B -m unittest discover -s server -p "test_*.py" -v
 - 分享集不会被替换成第 1 集
 - 显式下载第 1 集时，流请求才使用第 1 集 vid
 - 上游返回的视频通过 ffprobe 校验
+- 外部签名服务加游客设备池时，API 直接启动上游 guest server，不要求本机 App
 
 ## 尚未覆盖
 

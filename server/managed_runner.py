@@ -15,12 +15,17 @@ def main():
     root = args.root.resolve()
     settings = json.loads((root / "service.json").read_text(encoding="utf-8"))
     upstream = root / "upstream"
-    env = {**os.environ, "SIGN_SERVER": settings["signServer"], "DEVICE_POOL_SIZE": "0",
+    guest_mode = bool(settings.get("guestMode"))
+    device_pool_size = max(0, int(settings.get("devicePoolSize") or 0)) if guest_mode else 0
+    env = {**os.environ, "SIGN_SERVER": settings["signServer"], "DEVICE_POOL_SIZE": str(device_pool_size),
            "HONGGUO_SESSION_TOKEN": settings["sessionToken"], "ADMIN_TOKEN": settings["adminToken"],
            "API_KEYS": settings["apiKey"], "APIKEYS_PATH": str(upstream / "apikeys.json"),
            "PYTHONUNBUFFERED": "1", "SIGN_PORT": str(settings["signPort"]),
            "ADB": settings["adbPath"], "ADB_DEVICE": settings["adbDevice"],
            "FRIDA_HOST": settings["fridaHost"], "FRIDA_BIN": settings["fridaBin"]}
+    if guest_mode:
+        env["PORT"] = str(settings["port"])
+        env["BIND_HOST"] = "127.0.0.1"
     if settings.get("ffmpegDir"):
         env["PATH"] = settings["ffmpegDir"] + os.pathsep + env.get("PATH", "")
     children = []
@@ -39,9 +44,12 @@ def main():
     try:
         if settings["localSigner"]:
             children.append(("signer", subprocess.Popen([sys.executable, str(upstream / "sign_server.py")], **options)))
-        bridge = Path(__file__).with_name("run_bridge.py")
-        children.append(("api", subprocess.Popen([sys.executable, str(bridge), "--upstream", str(upstream),
-                                                "--port", str(settings["port"])], **options)))
+        if guest_mode:
+            children.append(("api", subprocess.Popen([sys.executable, str(upstream / "server.py")], **options)))
+        else:
+            bridge = Path(__file__).with_name("run_bridge.py")
+            children.append(("api", subprocess.Popen([sys.executable, str(bridge), "--upstream", str(upstream),
+                                                    "--port", str(settings["port"])], **options)))
         while not stopped.wait(0.5):
             for role, process in children:
                 if process.poll() is not None:

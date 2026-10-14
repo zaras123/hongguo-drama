@@ -9,6 +9,9 @@ managedPort: 18780
 managedSignPort: 18781
 # 留空时由插件启动本机签名服务；有现成签名服务可填 HTTP(S) 地址
 externalSignServer: ""
+# 有外部签名服务时优先使用游客设备池，不依赖红果 App
+offlineApi: true
+devicePoolSize: 20
 fridaHost: "127.0.0.1:27042"
 fridaBin: "/data/local/tmp/frida-server"
 

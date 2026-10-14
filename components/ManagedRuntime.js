@@ -172,7 +172,8 @@ export class ManagedRuntime {
     return this.exclusive(async () => {
       if (this.child) return { alreadyRunning: true }
       if (!this.installed) throw new Error("请先发送 #红果安装")
-      const localSigner = !config.externalSignServer
+      const offlineGuest = config.offlineApi === true && Boolean(config.externalSignServer)
+      const localSigner = !offlineGuest && !config.externalSignServer
       const port = Number(config.managedPort) || 18780
       const signPort = Number(config.managedSignPort) || 18781
       if (port === signPort) throw new Error("服务端口和签名端口不能相同")
@@ -188,6 +189,7 @@ export class ManagedRuntime {
       const previous = fs.existsSync(settingsPath) ? JSON.parse(fs.readFileSync(settingsPath, "utf8")) : {}
       const settings = {
         port, signPort, localSigner, signServer: config.externalSignServer || `http://127.0.0.1:${signPort}`,
+        guestMode: offlineGuest, devicePoolSize: Math.max(0, Number(config.devicePoolSize) || 0),
         sessionToken: previous.sessionToken || secret(), adminToken: previous.adminToken || secret(),
         apiKey: previous.apiKey || `hg_${secret()}`, adbPath: config.adbPath || "adb", adbDevice: config.adbDevice || "",
         fridaHost: config.fridaHost || "127.0.0.1:27042", fridaBin: config.fridaBin || "/data/local/tmp/frida-server",
@@ -228,9 +230,11 @@ export class ManagedRuntime {
         for (let attempt = 0; attempt < 30; attempt++) {
           if (!this.child) throw new Error(this.error || "本地服务提前退出")
           try {
-            const response = await fetch(`${apiServer}/admin/session`, {
-              headers: { "X-Session-Token": settings.sessionToken }, signal: AbortSignal.timeout(7000), redirect: "error"
-            })
+            const response = settings.guestMode
+              ? await fetch(`${apiServer}/`, { signal: AbortSignal.timeout(7000), redirect: "error" })
+              : await fetch(`${apiServer}/admin/session`, {
+                  headers: { "X-Session-Token": settings.sessionToken }, signal: AbortSignal.timeout(7000), redirect: "error"
+                })
             if (response.ok) { await response.json(); ready = true; break }
             probeError = `HTTP ${response.status}`
             await response.body?.cancel()

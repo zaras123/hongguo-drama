@@ -172,6 +172,9 @@ export class HongguoDrama extends plugin {
           `本地环境：${runtime.installed ? "已安装" : "未安装"}`,
           `服务：${runtime.phase}`,
           `设备：${this.config.adbDevice || "未选择"}`,
+          this.config.offlineApi && this.config.externalSignServer
+            ? `模式：离线游客 API（签名服务 ${this.config.externalSignServer}）`
+            : "",
           `自动解析：${this.config.enableAutoParse ? "开" : "关"}；自动下载：${this.config.autoDownload ? "开" : "关"}`,
           runtime.error ? `服务提示：${runtime.error}` : ""
         ].filter(Boolean)

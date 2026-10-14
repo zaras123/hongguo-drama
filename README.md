@@ -13,6 +13,7 @@
 - 内置托管 API 服务，默认优先使用，失败自动回退官网。
 - 启动后自动安装内置 API 运行环境；设备就绪时自动启动。
 - Linux Bot 可连接中心 API 服务，不要求在每台服务器配置 Android 设备。
+- 配置外部 unidbg 签名服务后，可优先使用游客设备池，公开内容不依赖 App。
 - 默认自动下载分享链接指向的集数。
 - 支持指定集数、重试、官网回退、H.264/AAC 转码和 base64 传输。
 - 支持主人私聊管理上游服务、Android 设备和 App 登录同步。
@@ -123,6 +124,8 @@ Linux 服务器推荐连接中心 API：
 | preferApiServer | true | 是否优先使用 API 解密流 |
 | apiRequired | false | API 必需模式，不回退官网 |
 | apiAutoSetup / apiAutoStart | true / true | 自动安装运行环境 / 设备就绪后自动启动 |
+| offlineApi / externalSignServer | true / 空 | 优先游客离线模式 / unidbg 签名地址 |
+| devicePoolSize | 20 | 游客设备池数量，0 表示使用单设备参数 |
 
 常用命令：
 
@@ -134,6 +137,9 @@ Linux 服务器推荐连接中心 API：
 #红果设置 发送方式 文件
 #红果设置 传输 base64
 #红果设置 转码 开
+#红果设置 离线API 开
+#红果设置 签名服务 http://127.0.0.1:9099
+#红果设置 设备池 20
 ~~~
 
 ## 注意

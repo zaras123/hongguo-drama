@@ -116,6 +116,35 @@ HONGGUO_API_REQUIRED=1
 `#红果配置API` 和 `HONGGUO_API_REQUIRED=1` 都会启用 API 必需模式；
 API 不可用时插件会明确失败，不切换官网。
 
+## 路线 D：unidbg 游客离线 API
+
+外部运行 `FqTrace serve` 后，中心 API 可以不启动 Frida 和红果 App：
+
+~~~text
+签名：http://unidbg主机:9099
+DEVICE_POOL_SIZE=20
+游客模式：不发送账号 Token
+~~~
+
+插件或中心 API 环境：
+
+~~~text
+HONGGUO_SIGN_SERVER=http://unidbg主机:9099
+HONGGUO_OFFLINE_API=1
+HONGGUO_DEVICE_POOL_SIZE=20
+~~~
+
+也可以发送：
+
+~~~text
+#红果设置 离线API 开
+#红果设置 签名服务 http://unidbg主机:9099
+#红果设置 设备池 20
+#红果一键配置
+~~~
+
+该路线对游客开放的搜索、剧集和视频模型有效。需要账号权限或登录 Token 的内容仍不保证可下载。
+
 要求：
 
 - API 服务固定使用上游提交 `5f8a58d10f48954bc9b6a58c9cd6418bf499feb9`。
