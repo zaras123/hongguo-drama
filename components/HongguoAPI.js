@@ -261,6 +261,12 @@ export default class HongguoAPI {
     return Boolean(this.server) && this.config.useApiServer !== false
   }
 
+  requireApi() {
+    if (this.config.apiRequired && !this.serverEnabled()) {
+      throw new Error("已启用 API 必需模式，请先配置可用的 API 服务")
+    }
+  }
+
   /** 判断某个下载地址是不是自建服务的串流地址 */
   isServerUrl(url) {
     if (!this.server) return false
@@ -545,6 +551,7 @@ export default class HongguoAPI {
 
   /** 剧集 ID -> 完整分集列表（含标题、封面、简介、题材） */
   async getSeries(seriesId) {
+    this.requireApi()
     const sid = String(seriesId ?? "").trim()
     if (!SERIES_ID_RE.test(sid)) throw new Error(`无效的剧集 ID：${seriesId}`)
 
@@ -555,6 +562,7 @@ export default class HongguoAPI {
         return result
       } catch (err) {
         this.lastServerError = err.message
+        if (this.config.apiRequired) throw new Error(`API 必需模式：${err.message}`)
       }
     }
 
@@ -622,11 +630,14 @@ export default class HongguoAPI {
    * prefer = "server" 走自建服务的解密串流；"site" 走官网内嵌的明文 MP4。
    */
   async getEpisodeUrl(seriesId, vid, options = {}) {
+    this.requireApi()
     const prefer =
-      options.prefer || (this.serverEnabled() && this.config.preferApiServer !== false ? "server" : "site")
+      this.config.apiRequired ? "server"
+        : options.prefer || (this.serverEnabled() && this.config.preferApiServer !== false ? "server" : "site")
     if (prefer === "server") {
       const url = this.buildStreamUrl({ seriesId, vid, index: options.index, quality: options.quality })
       if (url) return url
+      if (this.config.apiRequired) throw new Error("已启用 API 必需模式，但没有可用的 API 流地址")
     }
     return await this.siteEpisodeUrl(seriesId, vid, options)
   }
@@ -697,6 +708,7 @@ export default class HongguoAPI {
 
   /** 关键词搜索 */
   async search(keyword, page = 1) {
+    this.requireApi()
     const word = String(keyword ?? "").trim()
     if (!word) throw new Error("搜索关键词不能为空")
 
@@ -706,6 +718,7 @@ export default class HongguoAPI {
         if (list.length) return list
       } catch (err) {
         this.lastServerError = err.message
+        if (this.config.apiRequired) throw new Error(`API 必需模式：${err.message}`)
       }
     }
 

@@ -12,6 +12,7 @@
 - 支持短剧、漫剧分享链接、官方短链和 App scheme。
 - 内置托管 API 服务，默认优先使用，失败自动回退官网。
 - 启动后自动安装内置 API 运行环境；设备就绪时自动启动。
+- Linux Bot 可连接中心 API 服务，不要求在每台服务器配置 Android 设备。
 - 默认自动下载分享链接指向的集数。
 - 支持指定集数、重试、官网回退、H.264/AAC 转码和 base64 传输。
 - 支持主人私聊管理上游服务、Android 设备和 App 登录同步。
@@ -55,6 +56,7 @@ git clone https://github.com/zaras123/hongguo-drama.git plugins/hongguo-drama
 | `#红果搜索 剧名` | 搜索短剧或漫剧 |
 | `#红果帮助` | 查看命令 |
 | `#红果一键配置` | 安装并尝试启动内置 API |
+| `#红果配置API <地址> <下载Key> [登录Key]` | 配置远程 API 并启用必需模式 |
 
 选集支持 `1`、`1-3,5`、`第2集`、`1，2、4` 和 `全部`。
 
@@ -94,6 +96,14 @@ git clone https://github.com/zaras123/hongguo-drama.git plugins/hongguo-drama
 `/episodes` 失败不影响分享集下载。`/stream` 失败时，插件会用同一个 vid 回退官网。
 未安装、未启动或设备未就绪时，内置 API 连接失败会自动使用官网路线。
 
+Linux 服务器推荐连接中心 API：
+
+~~~text
+#红果配置API https://api.example.com 下载Key 登录Key
+~~~
+
+该命令会同时开启 `apiRequired`，API 失败时不会回退官网。
+
 ## 常用配置
 
 配置文件首次运行后生成在 `config/config/config.yaml`。
@@ -111,6 +121,7 @@ git clone https://github.com/zaras123/hongguo-drama.git plugins/hongguo-drama
 | apiServer | builtin | 内置 API；可填远程地址或关闭 |
 | apiKey | 空 | 上游下载 Key |
 | preferApiServer | true | 是否优先使用 API 解密流 |
+| apiRequired | false | API 必需模式，不回退官网 |
 | apiAutoSetup / apiAutoStart | true / true | 自动安装运行环境 / 设备就绪后自动启动 |
 
 常用命令：

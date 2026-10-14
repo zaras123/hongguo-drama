@@ -88,6 +88,8 @@ sessionToken: ""
 useApiServer: true
 # API 可用时是否优先使用解密流
 preferApiServer: true
+# true = 只允许 API，未配置或失败时不回退官网
+apiRequired: false
 # 启动后自动下载内置运行时；缺设备时只安装，不强行启动
 apiAutoSetup: true
 # 设备就绪后自动启动内置 API

@@ -251,7 +251,8 @@ test("built-in MP4 validation works when ffprobe is unavailable", async () => {
 test("management commands match their rules and reject non-owner/group usage", async () => {
   const inst = instance()
   for (const text of ["#红果安装", "#红果启动", "#红果停止", "#红果设备", "#红果准备设备",
-    "#红果一键配置", "#红果设置 设备 emulator-5554", "#红果连接 127.0.0.1:5555", "#红果安装App /tmp/base.apk"]) {
+    "#红果一键配置", "#红果配置API https://api.example.com key secret-token-1234",
+    "#红果设置 设备 emulator-5554", "#红果连接 127.0.0.1:5555", "#红果安装App /tmp/base.apk"]) {
     assert.ok(inst.rule.some((rule) => rule.fnc === "manage" && new RegExp(rule.reg).test(text)), text)
   }
   assert.ok(inst.rule.some((rule) => rule.fnc === "login" && new RegExp(rule.reg).test("#红果登录完成")))
@@ -269,6 +270,7 @@ test("settings persist quotes and paths, mask secrets and refresh another instan
   assert.equal(parseSetting("自动下载 关").value, false)
   assert.equal(parseSetting("API自动安装 关").value, false)
   assert.equal(parseSetting("API自动启动 关").value, false)
+  assert.equal(parseSetting("API必需 开").value, true)
   assert.throws(() => parseSetting("端口 22"))
   assert.throws(() => parseSetting("未知 anything"))
   assert.throws(() => parseSetting("服务地址 https://user:pass@example.com"))

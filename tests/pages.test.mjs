@@ -85,6 +85,14 @@ test("manju API route uses share chapter IDs when upstream metadata is unavailab
   assert.equal(series.episodes[1].vid, vids[1])
 })
 
+test("API-required mode rejects local website fallback for manju", async () => {
+  const api = new ManjuAPI({ apiRequired: true, apiServer: "", preferApiServer: false })
+  await assert.rejects(
+    api.getSeriesByInput("https://kylin.hainanyuyue.com/s/fixture"),
+    /API 必需模式/
+  )
+})
+
 test("manju API success does not require official site and keeps shared episode", async () => {
   const api = new ManjuAPI({ apiServer: "http://127.0.0.1:1" })
   api.hongguo.request = async () => ({ url: "https://hainanyuyue.com/share/video-animation-share", text: async () => share })

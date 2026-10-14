@@ -8,6 +8,7 @@
    `video_id`、`chapter_ids`、`used_chapter_id`、`chapter_order`。
 4. 默认 `apiServer: builtin`；内置服务未就绪时自动关闭 API，直接使用官网。
    插件后台自动安装运行环境，设备就绪时自动启动并读取本地地址和密钥。
+   Linux 用户也可通过 `#红果配置API` 或环境变量连接中心 API，并开启 API 必需模式。
 5. API 优先时，先尝试 `/episodes` 补充元数据。
 6. `/episodes` 失败或不匹配时，直接使用分享页 `chapter_ids`。
 7. 下载分享 vid：

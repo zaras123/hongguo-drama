@@ -156,10 +156,13 @@ export class ManagedRuntime {
 
   async ensure(config, notify = async () => {}) {
     if (config.apiAutoSetup === false) return { installed: this.installed, started: false, reason: "auto_setup_disabled" }
+    const needsDevice = !config.externalSignServer
+    if (process.platform === "linux" && needsDevice && !config.adbDevice && !this.installed) {
+      return { installed: false, started: false, reason: "device_required" }
+    }
     if (!this.installed) await this.install(config, notify)
     if (this.child) return { installed: true, started: true, alreadyRunning: true }
     if (config.apiAutoStart === false) return { installed: true, started: false, reason: "auto_start_disabled" }
-    const needsDevice = !config.externalSignServer
     if (needsDevice && !config.adbDevice) return { installed: true, started: false, reason: "device_required" }
     await this.start(config)
     return { installed: true, started: true }

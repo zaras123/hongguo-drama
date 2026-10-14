@@ -95,13 +95,26 @@ git clone https://github.com/zaras123/hongguo-drama.git plugins/hongguo-drama
 
 已有 `zhangbaio/hongguo` 服务时，把服务地址改为远程地址，不再启动插件的托管服务。
 
+Linux Bot 推荐使用一个中心 API 主机，中心主机负责 Android 设备、签名和登录；
+各 Linux 用户端只保存 API 地址和 Key。
+
 主人私聊配置：
 
 ~~~text
-#红果设置 服务地址 http://API地址:8000
-#红果设置 下载密钥 普通API密钥
-#红果设置 登录密钥 独立登录管理密钥
+#红果配置API https://API地址 普通API密钥 独立登录管理密钥
 ~~~
+
+也可以使用环境变量部署：
+
+~~~text
+HONGGUO_API_URL=https://API地址
+HONGGUO_API_KEY=普通API密钥
+HONGGUO_SESSION_TOKEN=独立登录管理密钥
+HONGGUO_API_REQUIRED=1
+~~~
+
+`#红果配置API` 和 `HONGGUO_API_REQUIRED=1` 都会启用 API 必需模式；
+API 不可用时插件会明确失败，不切换官网。
 
 要求：
 

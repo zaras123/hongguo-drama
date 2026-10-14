@@ -118,7 +118,7 @@ export default class Config {
     const defaults = this.readFile(this.defaultFile(name))
     const user = this.readFile(this.runtimeFile(name))
     const settings = name === DEFAULT_NAME ? this.getSettings() : {}
-    const config = { ...defaults, ...user, ...settings }
+    const config = { ...defaults, ...user, ...settings, ...this.getEnvConfig() }
     return name === DEFAULT_NAME ? this.resolveBuiltinApi(config) : config
   }
 
@@ -152,6 +152,17 @@ export default class Config {
       apiKey: config.apiKey || service.apiKey || "",
       sessionToken: config.sessionToken || service.sessionToken || ""
     }
+  }
+
+  static getEnvConfig() {
+    const env = {}
+    if (process.env.HONGGUO_API_URL) env.apiServer = String(process.env.HONGGUO_API_URL).trim()
+    if (process.env.HONGGUO_API_KEY) env.apiKey = String(process.env.HONGGUO_API_KEY).trim()
+    if (process.env.HONGGUO_SESSION_TOKEN) env.sessionToken = String(process.env.HONGGUO_SESSION_TOKEN).trim()
+    if (process.env.HONGGUO_API_REQUIRED) {
+      env.apiRequired = ["1", "true", "yes", "on"].includes(String(process.env.HONGGUO_API_REQUIRED).toLowerCase())
+    }
+    return env
   }
 
   static getSettings() {

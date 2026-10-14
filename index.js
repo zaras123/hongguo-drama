@@ -33,7 +33,8 @@ export class HongguoDrama extends plugin {
         { reg: "^#红果搜索\\s*(.+)$", fnc: "search" },
         { reg: "^#红果帮助$", fnc: "help" },
         { reg: "^#红果(登录|同步登录|登录完成|登录状态)$", fnc: "login", permission: "master" },
-        { reg: "^#红果(管理|状态|安装|启动|停止|设备|准备设备|一键配置|配置API)$", fnc: "manage", permission: "master" },
+        { reg: "^#红果(管理|状态|安装|启动|停止|设备|准备设备|一键配置)(?:\\s+.*)?$", fnc: "manage", permission: "master" },
+        { reg: "^#红果配置API(?:\\s+.*)?$", fnc: "manage", permission: "master" },
         { reg: "^#红果(设置|连接|安装App)(?:\\s+.*)?$", fnc: "manage", permission: "master" },
         { reg: "^#红果重载$", fnc: "reloadCommand", permission: "master" },
         {
@@ -75,7 +76,7 @@ export class HongguoDrama extends plugin {
           this.reload()
           logger.mark("[红果短剧] 内置 API 已自动启动")
         } else if (result.reason === "device_required") {
-          logger.info("[红果短剧] 内置 API 运行环境已就绪，等待配置 Android 设备")
+          logger.info("[红果短剧] 未配置设备或外部签名服务，本次使用官网路线")
         }
       } catch (error) {
         logger.warn(`[红果短剧] 内置 API 自动配置未完成: ${error.message}`)
@@ -100,6 +101,7 @@ export class HongguoDrama extends plugin {
           "首次：#红果一键配置 → #红果设备 → #红果设置 设备 <序列号>",
           "设备：#红果连接 地址:端口；#红果安装App APK绝对路径；#红果准备设备",
           "服务：#红果启动 / #红果停止 / #红果状态",
+          "远程：#红果配置API <地址> <下载Key> [登录Key]",
           "登录：#红果登录 → App内完成验证 → #红果登录完成",
           "配置：#红果设置；日常：直接发送分享链接"
         ].join("\n"))
@@ -110,12 +112,27 @@ export class HongguoDrama extends plugin {
         await e.reply(result.started
           ? "内置 API 已安装并启动。需要账号内容时请发送 #红果登录，在 App 内完成登录。"
           : result.reason === "device_required"
-            ? "运行环境已安装。请连接并选择 Android 设备后发送 #红果启动。"
+            ? result.installed
+              ? "运行环境已安装。请连接并选择 Android 设备后发送 #红果启动。"
+              : "内置 API 需要 Android 设备或外部签名服务；Linux 开箱使用官网路线。"
             : result.reason === "auto_start_disabled"
               ? "运行环境已安装，自动启动已在配置中关闭。"
               : result.reason === "auto_setup_disabled"
                 ? "自动安装已在配置中关闭，请先发送 #红果设置 API自动安装 开。"
               : "内置 API 运行环境已就绪。")
+      } else if (text.startsWith("配置API ")) {
+        const [apiServer, apiKey, sessionToken = ""] = text.slice("配置API ".length).trim().split(/\s+/)
+        if (!apiServer || !apiKey) throw new Error("写法：#红果配置API <服务地址> <下载密钥> [登录密钥]")
+        const url = new URL(apiServer)
+        if (!["http:", "https:"].includes(url.protocol) || url.username || url.password || url.search || url.hash) {
+          throw new Error("API 服务地址必须是不含凭据和查询参数的 HTTP(S) 根地址")
+        }
+        Config.updateSettings({
+          apiServer: url.href.replace(/\/+$/, ""), apiKey, sessionToken,
+          apiRequired: true, useApiServer: true, preferApiServer: true
+        })
+        this.reload()
+        await e.reply("远程 API 已配置并设为必需模式。")
       } else if (text === "安装") {
         await e.reply("正在安装插件专用服务环境，进度可通过 #红果状态 查看...")
         await runtime.install(this.config, (message) => e.reply(message))
@@ -438,6 +455,7 @@ export class HongguoDrama extends plugin {
 
   /** 首次优先使用上游按 vid 解密；失败后的整集重试固定回官网。 */
   episodePreference(attempt) {
+    if (this.config.apiRequired) return "server"
     if (attempt > 0) return "site"
     return this.api.serverEnabled() && this.config.preferApiServer !== false ? "server" : "site"
   }
@@ -497,7 +515,7 @@ export class HongguoDrama extends plugin {
               : Number(this.config.downloadIdleTimeout) || 60000,
             retries: Number(this.config.downloadRetries) || 0
           }).catch(async (err) => {
-            if (!fromServer) throw err
+            if (!fromServer || this.config.apiRequired) throw err
             this.api.lastServerError = err.message
             try {
               const fallback = await this.api.getEpisodeUrl(series.seriesId, episode.vid, {

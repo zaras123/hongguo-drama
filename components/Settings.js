@@ -7,9 +7,9 @@ const names = {
   "大小上限": "maxFileSizeMB", "发送方式": "sendType", "传输": "videoTransport",
   "转码": "transcodeVideo", "FFmpeg": "ffmpegPath", "ffmpeg": "ffmpegPath",
   "FFprobe": "ffprobePath", "ffprobe": "ffprobePath",
-  "API自动安装": "apiAutoSetup", "API自动启动": "apiAutoStart"
+  "API自动安装": "apiAutoSetup", "API自动启动": "apiAutoStart", "API必需": "apiRequired"
 }
-const booleans = new Set(["autoDownload", "enableAutoParse", "transcodeVideo", "apiAutoSetup", "apiAutoStart"])
+const booleans = new Set(["autoDownload", "enableAutoParse", "transcodeVideo", "apiAutoSetup", "apiAutoStart", "apiRequired"])
 const enums = {
   streamQuality: ["best", "1080p", "720p", "540p", "480p", "360p"],
   sendType: ["video", "file"], videoTransport: ["file", "base64"]
@@ -56,7 +56,7 @@ export const settingsHelp = [
   "自动解析 开|关；自动下载 开|关；选集 shared|first|1-3",
   "清晰度 best|1080p|720p；每次集数 1-100；大小上限 MB",
   "发送方式 视频|文件；传输 file|base64；转码 开|关",
-  "API自动安装 开|关；API自动启动 开|关",
+  "API自动安装 开|关；API自动启动 开|关；API必需 开|关",
   "FFmpeg / FFprobe 可执行文件路径",
   "API：服务地址 内置|http(s)地址|关闭",
   "已有远程服务：服务地址 / 下载密钥 / 登录密钥"

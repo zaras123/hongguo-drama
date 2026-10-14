@@ -264,6 +264,9 @@ export default class ManjuAPI {
 
   /** 漫剧分享链接 -> 统一剧集结构，可直接交给 index.js 的下载流程 */
   async getSeriesByInput(input) {
+    if (this.config.apiRequired && (!this.hongguo.serverEnabled() || this.config.preferApiServer === false)) {
+      throw new Error("已启用 API 必需模式，请先配置可用的漫剧 API 服务")
+    }
     const share = await this.resolveShare(input)
     if (this.hongguo.serverEnabled() && this.config.preferApiServer !== false && ID_RE.test(share.videoId)) {
       let enriched = null

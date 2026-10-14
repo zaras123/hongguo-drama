@@ -93,6 +93,11 @@ test("builtin API alias resolves to the plugin-managed local service", () => {
   assert.equal(disabled.serverEnabled(), false)
 })
 
+test("API-required mode rejects the official site route", async () => {
+  const required = new HongguoAPI({ apiRequired: true, apiServer: "" })
+  await assert.rejects(required.getSeries("123456789012345678"), /API 必需模式/)
+})
+
 test("DNS guards block private and mapped addresses before opening a socket", async () => {
   assert.equal(isPublicAddress("2001:4860:4860::8888"), true)
   assert.equal(isPublicAddress("93.184.216.34"), true)
