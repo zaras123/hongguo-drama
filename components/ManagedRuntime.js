@@ -155,12 +155,14 @@ export class ManagedRuntime {
   }
 
   async ensure(config, notify = async () => {}) {
-    if (config.apiAutoSetup === false) return { installed: this.installed, started: false, reason: "auto_setup_disabled" }
     const needsDevice = !config.externalSignServer
     if (process.platform === "linux" && needsDevice && !config.adbDevice && !this.installed) {
       return { installed: false, started: false, reason: "device_required" }
     }
-    if (!this.installed) await this.install(config, notify)
+    if (!this.installed) {
+      if (config.apiAutoSetup === false) return { installed: false, started: false, reason: "auto_setup_disabled" }
+      await this.install(config, notify)
+    }
     if (this.child) return { installed: true, started: true, alreadyRunning: true }
     if (config.apiAutoStart === false) return { installed: true, started: false, reason: "auto_start_disabled" }
     if (needsDevice && !config.adbDevice) return { installed: true, started: false, reason: "device_required" }
@@ -244,7 +246,10 @@ export class ManagedRuntime {
           await sleep(500)
         }
         if (!ready) throw new Error(`API 启动超时（${probeError}），请检查 Python 环境和设备状态`)
-        Config.updateSettings({ apiServer, apiKey: settings.apiKey, sessionToken: settings.sessionToken, useApiServer: true, preferApiServer: true })
+        Config.updateSettings({
+          apiServer: "builtin", apiKey: settings.apiKey, sessionToken: settings.sessionToken,
+          useApiServer: true, preferApiServer: true
+        })
         this.phase = "运行中"
         return { apiServer }
       } catch (error) {

@@ -69,7 +69,7 @@ export class HongguoDrama extends plugin {
     if (autoApiSetupStarted || process.env.HONGGUO_DISABLE_AUTO_SETUP || process.env.NODE_TEST_CONTEXT) return
     autoApiSetupStarted = true
     const timer = setTimeout(async () => {
-      if (!this.config.apiBuiltin || this.config.apiAutoSetup === false) return
+      if (!this.config.apiBuiltin) return
       try {
         const result = await runtime.ensure(this.config, (message) => logger.info(`[红果短剧] ${message}`))
         if (result.started) {

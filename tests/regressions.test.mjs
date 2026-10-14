@@ -96,6 +96,14 @@ test("builtin API alias resolves to the plugin-managed local service", () => {
 test("API-required mode rejects the official site route", async () => {
   const required = new HongguoAPI({ apiRequired: true, apiServer: "" })
   await assert.rejects(required.getSeries("123456789012345678"), /API 必需模式/)
+  const preferSite = new HongguoAPI({
+    apiServer: "http://127.0.0.1:1",
+    apiRequired: true,
+    preferApiServer: false
+  })
+  preferSite.serverSeries = async () => { throw new Error("offline") }
+  preferSite.siteSeries = async () => assert.fail("API-required mode must not use the official site")
+  await assert.rejects(preferSite.getSeries("123456789012345678"), /API 必需模式/)
 })
 
 test("DNS guards block private and mapped addresses before opening a socket", async () => {

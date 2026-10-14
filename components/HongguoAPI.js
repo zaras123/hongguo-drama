@@ -555,7 +555,7 @@ export default class HongguoAPI {
     const sid = String(seriesId ?? "").trim()
     if (!SERIES_ID_RE.test(sid)) throw new Error(`无效的剧集 ID：${seriesId}`)
 
-    if (this.serverEnabled() && this.config.preferApiServer !== false) {
+    if (this.serverEnabled() && (this.config.apiRequired || this.config.preferApiServer !== false)) {
       try {
         const result = await this.serverSeries(sid)
         this.lastServerError = ""
@@ -712,7 +712,7 @@ export default class HongguoAPI {
     const word = String(keyword ?? "").trim()
     if (!word) throw new Error("搜索关键词不能为空")
 
-    if (this.serverEnabled() && this.config.preferApiServer !== false) {
+    if (this.serverEnabled() && (this.config.apiRequired || this.config.preferApiServer !== false)) {
       try {
         const list = await this.serverSearch(word, this.config.searchLimit)
         if (list.length) return list
